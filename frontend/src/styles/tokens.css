@@ -1,0 +1,159 @@
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto,
+    Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Code", "SF Mono", "Consolas",
+    "Roboto Mono", monospace;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+
+  --sidebar-width: 272px;
+  --sidebar-collapsed-width: 64px;
+  --composer-max-width: 780px;
+
+  --transition-fast: 120ms ease;
+  --transition-base: 180ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* light palette (default tokens) */
+  --bg-base: #f7f7f8;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-hover: #eef0f2;
+  --bg-active: #e6e8eb;
+  --bg-inset: #eef0f2;
+
+  --border-subtle: #e6e7ea;
+  --border-default: #d8dade;
+  --border-strong: #c2c5cb;
+
+  --text-primary: #16181d;
+  --text-secondary: #565c66;
+  --text-tertiary: #8a909c;
+  --text-inverse: #f7f7f8;
+
+  --accent: #4a5cff;
+  --accent-hover: #3846e6;
+  --accent-active: #2c37c9;
+  --accent-soft: rgba(74, 92, 255, 0.1);
+  --accent-text: #3846e6;
+
+  --success: #1a9c6b;
+  --success-soft: rgba(26, 156, 107, 0.12);
+  --danger: #d13b3b;
+  --danger-soft: rgba(209, 59, 59, 0.1);
+  --warning: #b6791f;
+  --warning-soft: rgba(182, 121, 31, 0.12);
+
+  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+  --shadow-sm: 0 1px 2px rgba(16, 18, 22, 0.06);
+  --shadow-md: 0 4px 16px rgba(16, 18, 22, 0.08);
+  --shadow-lg: 0 12px 40px rgba(16, 18, 22, 0.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-base: #0c0d10;
+    --bg-surface: #131519;
+    --bg-elevated: #1a1d22;
+    --bg-hover: #21252b;
+    --bg-active: #292d34;
+    --bg-inset: #0f1114;
+
+    --border-subtle: #22252b;
+    --border-default: #2c3038;
+    --border-strong: #3c414b;
+
+    --text-primary: #edeef0;
+    --text-secondary: #a2a8b3;
+    --text-tertiary: #6d7480;
+    --text-inverse: #16181d;
+
+    --accent: #7b8cff;
+    --accent-hover: #8f9eff;
+    --accent-active: #6674e0;
+    --accent-soft: rgba(123, 140, 255, 0.14);
+    --accent-text: #a3aeff;
+
+    --success: #3fbf8f;
+    --success-soft: rgba(63, 191, 143, 0.14);
+    --danger: #e2685f;
+    --danger-soft: rgba(226, 104, 95, 0.14);
+    --warning: #d9a441;
+    --warning-soft: rgba(217, 164, 65, 0.14);
+
+    --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.35);
+    --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg-base: #0c0d10;
+  --bg-surface: #131519;
+  --bg-elevated: #1a1d22;
+  --bg-hover: #21252b;
+  --bg-active: #292d34;
+  --bg-inset: #0f1114;
+
+  --border-subtle: #22252b;
+  --border-default: #2c3038;
+  --border-strong: #3c414b;
+
+  --text-primary: #edeef0;
+  --text-secondary: #a2a8b3;
+  --text-tertiary: #6d7480;
+  --text-inverse: #16181d;
+
+  --accent: #7b8cff;
+  --accent-hover: #8f9eff;
+  --accent-active: #6674e0;
+  --accent-soft: rgba(123, 140, 255, 0.14);
+  --accent-text: #a3aeff;
+
+  --success: #3fbf8f;
+  --success-soft: rgba(63, 191, 143, 0.14);
+  --danger: #e2685f;
+  --danger-soft: rgba(226, 104, 95, 0.14);
+  --warning: #d9a441;
+  --warning-soft: rgba(217, 164, 65, 0.14);
+
+  --focus-ring: 0 0 0 2px var(--bg-surface), 0 0 0 4px var(--accent);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="light"] {
+  --bg-base: #f7f7f8;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-hover: #eef0f2;
+  --bg-active: #e6e8eb;
+  --bg-inset: #eef0f2;
+
+  --border-subtle: #e6e7ea;
+  --border-default: #d8dade;
+  --border-strong: #c2c5cb;
+
+  --text-primary: #16181d;
+  --text-secondary: #565c66;
+  --text-tertiary: #8a909c;
+  --text-inverse: #f7f7f8;
+
+  --accent: #4a5cff;
+  --accent-hover: #3846e6;
+  --accent-active: #2c37c9;
+  --accent-soft: rgba(74, 92, 255, 0.1);
+  --accent-text: #3846e6;
+}

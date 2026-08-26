@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Backend runtime data (user/plan grants — never publish real user data)
+backend/data/
+
+# Environment secrets
+.env
+.env.local
+*.env.production
+!frontend/.env.example
+
+# Node
+node_modules/
+frontend/dist/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

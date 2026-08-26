@@ -1,0 +1,98 @@
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  animation: fade-slide-in var(--transition-base) both;
+}
+
+.assistantRow {
+  justify-content: flex-start;
+}
+
+.userAvatar,
+.assistantAvatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.userAvatar {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+}
+
+.assistantAvatar {
+  background: var(--accent);
+  color: white;
+}
+
+.userBubble {
+  max-width: min(640px, 78%);
+  background: var(--accent-soft);
+  border: 1px solid transparent;
+  border-radius: var(--radius-lg);
+  padding: 10px var(--space-4);
+}
+
+.userText {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: var(--text-primary);
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+
+.assistantContent {
+  max-width: min(720px, 82%);
+  min-width: 0;
+}
+
+.errorBox {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  font-size: 13.5px;
+}
+
+.toolbar {
+  display: flex;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  opacity: 0.75;
+  transition: opacity var(--transition-fast);
+}
+
+.assistantContent:hover .toolbar {
+  opacity: 1;
+}
+
+.toolButton {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.toolButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
