@@ -32,4 +32,4 @@ Free, Hobby ($18/mo), Pro ($30/mo), Max ($60/mo), Premium ($100/mo), Premium+ ($
 
 ## Deploying it publicly
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for running the backend (bundled with Ollama) on Railway and the frontend on Vercel.
+See [DEPLOYMENT.md](DEPLOYMENT.md) for running both the backend (bundled with Ollama) and the frontend as two services on Railway.
