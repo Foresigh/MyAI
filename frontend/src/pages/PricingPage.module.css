@@ -37,6 +37,69 @@
   padding: var(--space-3) var(--space-4);
   font-size: 13px;
   margin-bottom: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.manageLink {
+  background: none;
+  border: none;
+  color: var(--success);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+}
+
+.manageLink:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.cancelBanner {
+  background: var(--warning-soft);
+  color: var(--warning);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font-size: 13px;
+  margin-bottom: var(--space-4);
+}
+
+.emailRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--space-5);
+}
+
+.emailRow input {
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-inset);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+  min-width: 260px;
+}
+
+.emailRow input:focus {
+  border-color: var(--accent);
+}
+
+.emailHint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.errorText {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0 0 var(--space-4);
 }
 
 .cards {

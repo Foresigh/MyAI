@@ -116,6 +116,34 @@ export async function fetchPlanForEmail(email: string): Promise<PlanId> {
   return (data.plan as PlanId) ?? "free";
 }
 
+export async function createCheckoutSession(email: string, plan: PlanId): Promise<string> {
+  const response = await fetch(`${API_URL}/billing/checkout`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, plan }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ChatApiError(data.detail ?? "Could not start checkout.", response.status);
+  }
+  const data = await response.json();
+  return data.url as string;
+}
+
+export async function createBillingPortalSession(email: string): Promise<string> {
+  const response = await fetch(`${API_URL}/billing/portal`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new ChatApiError(data.detail ?? "Could not open the billing portal.", response.status);
+  }
+  const data = await response.json();
+  return data.url as string;
+}
+
 export interface AdminUserGrant {
   email: string;
   plan: PlanId;

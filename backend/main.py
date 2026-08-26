@@ -8,11 +8,12 @@ from datetime import date
 from typing import Iterator, Literal
 
 import requests
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+import billing
 import plans
 import users
 
@@ -71,6 +72,15 @@ class UserGrantRequest(BaseModel):
     email: str
     plan: PlanLiteral
     note: str = ""
+
+
+class CheckoutRequest(BaseModel):
+    email: str
+    plan: PlanLiteral
+
+
+class PortalRequest(BaseModel):
+    email: str
 
 
 def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
@@ -247,3 +257,35 @@ def admin_upsert_user(grant: UserGrantRequest):
 def admin_delete_user(email: str):
     users.delete_user(email)
     return {"deleted": email}
+
+
+@app.post("/billing/checkout")
+def billing_checkout(request: CheckoutRequest):
+    try:
+        url = billing.create_checkout_session(request.plan, request.email)
+    except billing.BillingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"url": url}
+
+
+@app.post("/billing/portal")
+def billing_portal(request: PortalRequest):
+    try:
+        url = billing.create_billing_portal_session(request.email)
+    except billing.BillingError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"url": url}
+
+
+@app.post("/billing/webhook")
+async def billing_webhook(request: Request, stripe_signature: str | None = Header(default=None)):
+    payload = await request.body()
+    try:
+        event = billing.construct_webhook_event(payload, stripe_signature or "")
+    except (billing.BillingError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # signature verification failure
+        raise HTTPException(status_code=400, detail=f"Invalid webhook signature: {exc}") from exc
+
+    billing.handle_webhook_event(event)
+    return {"received": True}

@@ -39,7 +39,14 @@ def get_plan(email: str) -> str:
     return "free"
 
 
-def upsert_user(email: str, plan: str, note: str = "") -> dict:
+def upsert_user(
+    email: str,
+    plan: str,
+    note: str = "",
+    source: str = "admin",
+    stripe_customer_id: str | None = None,
+    stripe_subscription_id: str | None = None,
+) -> dict:
     users = load_users()
     key = email.lower()
     existing = users.get(key, {})
@@ -47,6 +54,9 @@ def upsert_user(email: str, plan: str, note: str = "") -> dict:
         "email": email,
         "plan": plan,
         "note": note,
+        "source": source,
+        "stripeCustomerId": stripe_customer_id or existing.get("stripeCustomerId"),
+        "stripeSubscriptionId": stripe_subscription_id or existing.get("stripeSubscriptionId"),
         "addedAt": existing.get("addedAt", datetime.now(timezone.utc).isoformat()),
     }
     users[key] = entry
@@ -63,3 +73,19 @@ def delete_user(email: str) -> None:
 def list_users() -> list:
     users = load_users()
     return sorted(users.values(), key=lambda u: u.get("addedAt", ""), reverse=True)
+
+
+def find_by_customer_id(customer_id: str) -> dict | None:
+    users = load_users()
+    for entry in users.values():
+        if entry.get("stripeCustomerId") == customer_id:
+            return entry
+    return None
+
+
+def find_by_subscription_id(subscription_id: str) -> dict | None:
+    users = load_users()
+    for entry in users.values():
+        if entry.get("stripeSubscriptionId") == subscription_id:
+            return entry
+    return None
