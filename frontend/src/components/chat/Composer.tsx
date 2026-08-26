@@ -1,7 +1,7 @@
 import { useRef, useState, type DragEvent, type KeyboardEvent } from "react";
 import { ArrowUp, Paperclip, Square } from "lucide-react";
 import { createId } from "../../lib/id";
-import { MODEL_DISPLAY_NAME } from "../../lib/brand";
+import { APP_NAME, MODEL_DISPLAY_NAME } from "../../lib/brand";
 import { isLikelyTextFile, readFileAsText } from "../../lib/fileToText";
 import { estimateTokens } from "../../lib/tokenEstimate";
 import type { Attachment } from "../../types/chat";
@@ -111,7 +111,7 @@ export function Composer({ onSend, onStop, isGenerating, disabled, disabledReaso
           ref={textareaRef}
           className={styles.textarea}
           value={text}
-          placeholder={disabled ? disabledReason ?? "Sending is disabled" : "Message MyAI..."}
+          placeholder={disabled ? disabledReason ?? "Sending is disabled" : `Message ${APP_NAME}...`}
           rows={1}
           disabled={disabled}
           onChange={(e) => {

@@ -1,4 +1,5 @@
 import { Code2, Database, FileSearch, Hammer, Layers, ScanSearch } from "lucide-react";
+import { APP_NAME } from "../../lib/brand";
 import styles from "./WelcomeScreen.module.css";
 
 interface WelcomeScreenProps {
@@ -18,7 +19,7 @@ export function WelcomeScreen({ onPick }: WelcomeScreenProps) {
   return (
     <div className={styles.container}>
       <div className={styles.inner}>
-        <h1 className={styles.title}>MyAI</h1>
+        <h1 className={styles.title}>{APP_NAME}</h1>
         <p className={styles.subtitle}>Build. Code. Create.</p>
 
         <div className={styles.grid}>

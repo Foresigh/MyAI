@@ -1,4 +1,4 @@
-# Deploying MyAI
+# Deploying Arvo
 
 Both the backend (bundled with Ollama) and the frontend run as two separate services in one [Railway](https://railway.app) project.
 
@@ -7,7 +7,7 @@ Both the backend (bundled with Ollama) and the frontend run as two separate serv
 Ollama needs real RAM and CPU (or GPU) to run a model. Railway's compute is CPU-only and billed by usage:
 
 - `qwen3:8b` (the Free-tier model) needs roughly 6–8GB RAM to run comfortably and will respond noticeably slower on Railway's shared CPU than it did on your own machine during testing.
-- The bigger models used by paid tiers (`qwen3:14b`/`32b`) need much more RAM — likely more than a small Railway plan gives you. Until you provision enough RAM to pull them, MyAI's existing fallback logic quietly serves everyone `qwen3:8b`; paid tiers still get real value from higher message limits and priority, just not a bigger model yet.
+- The bigger models used by paid tiers (`qwen3:14b`/`32b`) need much more RAM — likely more than a small Railway plan gives you. Until you provision enough RAM to pull them, Arvo's existing fallback logic quietly serves everyone `qwen3:8b`; paid tiers still get real value from higher message limits and priority, just not a bigger model yet.
 - A model running continuously consumes compute-hours continuously. Pick a Railway plan with a RAM allocation you're comfortable paying for, and watch usage for the first few days.
 
 Start with just `qwen3:8b` on a modest plan, confirm it works and feels acceptable, then scale RAM up if you want to enable bigger models for paid tiers.

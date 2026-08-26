@@ -30,11 +30,11 @@ if not ADMIN_KEY:
     print("=" * 60)
     print("No ADMIN_KEY set. Generated a temporary admin key for this session:")
     print(f"  {ADMIN_KEY}")
-    print("Paste this into the MyAI Admin page to manage plan grants.")
+    print("Paste this into the Arvo Admin page to manage plan grants.")
     print("Set ADMIN_KEY as an environment variable to keep it stable across restarts.")
     print("=" * 60)
 
-app = FastAPI(title="MyAI API")
+app = FastAPI(title="Arvo API")
 
 app.add_middleware(
     CORSMiddleware,
@@ -145,7 +145,7 @@ def get_plan_from_request(x_plan: str | None) -> str:
 
 @app.get("/")
 def home():
-    return {"message": "MyAI is online"}
+    return {"message": "Arvo is online"}
 
 
 @app.get("/health")

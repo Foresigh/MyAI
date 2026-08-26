@@ -12,6 +12,7 @@ import {
   MessageSquare,
   X,
 } from "lucide-react";
+import { APP_NAME } from "../../lib/brand";
 import { useConversationStore } from "../../store/conversationStore";
 import { useSettingsStore } from "../../store/settingsStore";
 import { useUiStore } from "../../store/uiStore";
@@ -69,7 +70,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
   if (collapsed && !mobileOpen) {
     return (
       <aside className={styles.collapsedRail}>
-        <button className={styles.brandMark} onClick={() => navigate("/")} aria-label="MyAI home">
+        <button className={styles.brandMark} onClick={() => navigate("/")} aria-label={`${APP_NAME} home`}>
           <Sparkles size={18} />
         </button>
         <IconButton label="Expand sidebar" onClick={toggleSidebar}>
@@ -99,7 +100,7 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
           <span className={styles.brandMark}>
             <Sparkles size={16} />
           </span>
-          <span className={styles.brandName}>MyAI</span>
+          <span className={styles.brandName}>{APP_NAME}</span>
         </button>
         <IconButton label="Collapse sidebar" onClick={toggleSidebar} className={styles.desktopOnly}>
           <PanelLeftClose size={18} />

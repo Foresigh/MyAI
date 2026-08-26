@@ -39,7 +39,7 @@ export async function streamChat({ message, history, plan, signal, onToken }: St
   } catch (err) {
     if ((err as Error).name === "AbortError") throw err;
     throw new ChatApiError(
-      "Could not reach the MyAI backend. Is it running on " + API_URL + "?"
+      "Could not reach the Arvo backend. Is it running on " + API_URL + "?"
     );
   }
 

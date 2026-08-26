@@ -1,5 +1,5 @@
 """
-One-time setup: creates the MyAI subscription Products + Prices in your Stripe
+One-time setup: creates the Arvo subscription Products + Prices in your Stripe
 account and prints the environment variables to add to your backend config.
 
 Usage:
@@ -9,7 +9,7 @@ Usage:
         cd backend
         python scripts/stripe_setup.py
 
-Safe to re-run — it looks up existing MyAI products by name before creating
+Safe to re-run — it looks up existing Arvo products by name before creating
 new ones, so it won't create duplicates on a second run.
 """
 
@@ -28,11 +28,11 @@ if not STRIPE_SECRET_KEY:
 stripe.api_key = STRIPE_SECRET_KEY
 
 PLANS = [
-    {"id": "hobby", "name": "MyAI Hobby", "amount": 1800, "env": "STRIPE_PRICE_HOBBY"},
-    {"id": "pro", "name": "MyAI Pro", "amount": 3000, "env": "STRIPE_PRICE_PRO"},
-    {"id": "max", "name": "MyAI Max", "amount": 6000, "env": "STRIPE_PRICE_MAX"},
-    {"id": "premium", "name": "MyAI Premium", "amount": 10000, "env": "STRIPE_PRICE_PREMIUM"},
-    {"id": "premiumPlus", "name": "MyAI Premium+", "amount": 20000, "env": "STRIPE_PRICE_PREMIUM_PLUS"},
+    {"id": "hobby", "name": "Arvo Hobby", "amount": 1800, "env": "STRIPE_PRICE_HOBBY"},
+    {"id": "pro", "name": "Arvo Pro", "amount": 3000, "env": "STRIPE_PRICE_PRO"},
+    {"id": "max", "name": "Arvo Max", "amount": 6000, "env": "STRIPE_PRICE_MAX"},
+    {"id": "premium", "name": "Arvo Premium", "amount": 10000, "env": "STRIPE_PRICE_PREMIUM"},
+    {"id": "premiumPlus", "name": "Arvo Premium+", "amount": 20000, "env": "STRIPE_PRICE_PREMIUM_PLUS"},
 ]
 
 

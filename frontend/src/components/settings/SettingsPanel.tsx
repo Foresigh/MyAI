@@ -72,7 +72,7 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         <section className={styles.section}>
           <h3>Identity</h3>
           <p className={styles.hint}>
-            MyAI doesn't have accounts yet. Enter your email so an admin-granted plan can be recognized on this
+            Arvo doesn't have accounts yet. Enter your email so an admin-granted plan can be recognized on this
             device.
           </p>
           <div className={styles.emailRow}>

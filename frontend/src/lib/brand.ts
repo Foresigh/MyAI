@@ -1,1 +1,2 @@
-export const MODEL_DISPLAY_NAME = "My AI 1.0";
+export const APP_NAME = "Arvo";
+export const MODEL_DISPLAY_NAME = "Arvo 1.0";

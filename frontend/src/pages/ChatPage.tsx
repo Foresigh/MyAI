@@ -4,6 +4,7 @@ import { TopBar } from "../components/layout/TopBar";
 import { MessageList } from "../components/chat/MessageList";
 import { Composer } from "../components/chat/Composer";
 import { WelcomeScreen } from "../components/chat/WelcomeScreen";
+import { APP_NAME } from "../lib/brand";
 import { useConversationStore } from "../store/conversationStore";
 import { useChatStream } from "../hooks/useChatStream";
 import type { Attachment } from "../types/chat";
@@ -39,7 +40,7 @@ export function ChatPage() {
 
   return (
     <div className={styles.page}>
-      <TopBar title={conversation?.title ?? "MyAI"} />
+      <TopBar title={conversation?.title ?? APP_NAME} />
       {conversation && conversation.messages.length > 0 ? (
         <MessageList messages={conversation.messages} isGenerating={isGenerating} onRegenerate={handleRegenerate} />
       ) : (

@@ -1,4 +1,4 @@
-# MyAI
+# Arvo
 
 A local, Qwen-powered AI coding assistant with a Claude-quality chat interface — FastAPI + Ollama backend, React/TypeScript frontend.
 
