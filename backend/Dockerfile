@@ -17,4 +17,4 @@ ENV MODEL_NAME=qwen3:8b
 
 EXPOSE 8000
 
-CMD ["./start.sh"]
+ENTRYPOINT ["./start.sh"]
