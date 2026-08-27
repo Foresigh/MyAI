@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import clsx from "clsx";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -10,6 +10,8 @@ import {
   Settings as SettingsIcon,
   Sparkles,
   MessageSquare,
+  Image as ImageIcon,
+  Film,
   X,
 } from "lucide-react";
 import { APP_NAME } from "../../lib/brand";
@@ -24,10 +26,20 @@ interface SidebarProps {
   onOpenSettings: () => void;
 }
 
+type Mode = "chat" | "images" | "videos";
+
+function useMode(): Mode {
+  const location = useLocation();
+  if (location.pathname.startsWith("/images")) return "images";
+  if (location.pathname.startsWith("/videos")) return "videos";
+  return "chat";
+}
+
 export function Sidebar({ onOpenSettings }: SidebarProps) {
   const navigate = useNavigate();
   const { conversationId } = useParams();
   const [query, setQuery] = useState("");
+  const mode = useMode();
 
   const conversations = useConversationStore((s) => s.conversations);
   const createConversation = useConversationStore((s) => s.createConversation);
@@ -67,6 +79,37 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
     if (conversationId === id) navigate("/");
   };
 
+  const goTo = (path: string) => {
+    navigate(path);
+    closeMobileSidebar();
+  };
+
+  const modeTabs = (
+    <div className={styles.modeTabs}>
+      <button
+        className={mode === "chat" ? `${styles.modeTab} ${styles.modeTabActive}` : styles.modeTab}
+        onClick={() => goTo("/")}
+      >
+        <MessageSquare size={14} />
+        Chat
+      </button>
+      <button
+        className={mode === "images" ? `${styles.modeTab} ${styles.modeTabActive}` : styles.modeTab}
+        onClick={() => goTo("/images")}
+      >
+        <ImageIcon size={14} />
+        Images
+      </button>
+      <button
+        className={mode === "videos" ? `${styles.modeTab} ${styles.modeTabActive}` : styles.modeTab}
+        onClick={() => goTo("/videos")}
+      >
+        <Film size={14} />
+        Video
+      </button>
+    </div>
+  );
+
   if (collapsed && !mobileOpen) {
     return (
       <aside className={styles.collapsedRail}>
@@ -76,9 +119,20 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
         <IconButton label="Expand sidebar" onClick={toggleSidebar}>
           <PanelLeftOpen size={18} />
         </IconButton>
-        <IconButton label="New chat" onClick={handleNewChat}>
-          <SquarePen size={18} />
+        <IconButton label="Chat" active={mode === "chat"} onClick={() => goTo("/")}>
+          <MessageSquare size={17} />
         </IconButton>
+        <IconButton label="Image Maker" active={mode === "images"} onClick={() => goTo("/images")}>
+          <ImageIcon size={17} />
+        </IconButton>
+        <IconButton label="Video Maker" active={mode === "videos"} onClick={() => goTo("/videos")}>
+          <Film size={17} />
+        </IconButton>
+        {mode === "chat" && (
+          <IconButton label="New chat" onClick={handleNewChat}>
+            <SquarePen size={18} />
+          </IconButton>
+        )}
         <div className={styles.railSpacer} />
         <IconButton label="Settings" onClick={onOpenSettings}>
           <SettingsIcon size={18} />
@@ -110,47 +164,59 @@ export function Sidebar({ onOpenSettings }: SidebarProps) {
         </IconButton>
       </div>
 
-      <button className={styles.newChat} onClick={handleNewChat}>
-        <SquarePen size={16} />
-        New chat
-      </button>
+      {modeTabs}
 
-      <div className={styles.search}>
-        <Search size={14} className={styles.searchIcon} />
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search conversations"
-          aria-label="Search conversations"
-        />
-      </div>
+      {mode === "chat" ? (
+        <>
+          <button className={styles.newChat} onClick={handleNewChat}>
+            <SquarePen size={16} />
+            New chat
+          </button>
 
-      <nav className={styles.history} aria-label="Conversation history">
-        {filtered.length === 0 && (
-          <p className={styles.empty}>{query ? "No matches." : "No conversations yet."}</p>
-        )}
-        {filtered.map((c) => (
-          <a
-            key={c.id}
-            href={`/c/${c.id}`}
-            onClick={(e) => {
-              e.preventDefault();
-              handleNavigate(c.id);
-            }}
-            className={c.id === conversationId ? `${styles.item} ${styles.itemActive}` : styles.item}
-          >
-            <MessageSquare size={14} className={styles.itemIcon} />
-            <span className={styles.itemTitle}>{c.title}</span>
-            <button
-              className={styles.itemDelete}
-              onClick={(e) => handleDelete(e, c.id)}
-              aria-label={`Delete conversation ${c.title}`}
-            >
-              <Trash2 size={13} />
-            </button>
-          </a>
-        ))}
-      </nav>
+          <div className={styles.search}>
+            <Search size={14} className={styles.searchIcon} />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search conversations"
+              aria-label="Search conversations"
+            />
+          </div>
+
+          <nav className={styles.history} aria-label="Conversation history">
+            {filtered.length === 0 && (
+              <p className={styles.empty}>{query ? "No matches." : "No conversations yet."}</p>
+            )}
+            {filtered.map((c) => (
+              <a
+                key={c.id}
+                href={`/c/${c.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleNavigate(c.id);
+                }}
+                className={c.id === conversationId ? `${styles.item} ${styles.itemActive}` : styles.item}
+              >
+                <MessageSquare size={14} className={styles.itemIcon} />
+                <span className={styles.itemTitle}>{c.title}</span>
+                <button
+                  className={styles.itemDelete}
+                  onClick={(e) => handleDelete(e, c.id)}
+                  aria-label={`Delete conversation ${c.title}`}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </a>
+            ))}
+          </nav>
+        </>
+      ) : (
+        <div className={styles.modeDescription}>
+          {mode === "images"
+            ? "Describe an image and Arvo will generate it. Your results and history live on the right."
+            : "Describe a scene and Arvo will generate a short video. Generation can take a few minutes."}
+        </div>
+      )}
 
       <div className={styles.footer}>
         <button className={styles.profile} onClick={onOpenSettings}>

@@ -16,6 +16,17 @@ from pydantic import BaseModel
 import billing
 import plans
 import users
+from images.provider import (
+    MAX_NUM_IMAGES,
+    ImageGenerationRequest,
+    ImageProviderError,
+    get_image_provider,
+)
+from videos.provider import (
+    VideoGenerationRequest,
+    VideoProviderError,
+    get_video_provider,
+)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 MODEL_NAME = os.environ.get("MODEL_NAME", plans.PLAN_MODELS["free"])
@@ -81,6 +92,38 @@ class CheckoutRequest(BaseModel):
 
 class PortalRequest(BaseModel):
     email: str
+
+
+# Kept in sync with images/provider.py and videos/provider.py by hand, same
+# pattern as PlanLiteral above.
+ImageAspectRatioLiteral = Literal["1:1", "16:9", "9:16", "4:3", "3:4"]
+ImageQualityLiteral = Literal["standard", "high"]
+ImageStyleLiteral = Literal["none", "photorealistic", "digital-art", "illustration", "3d-render"]
+VideoAspectRatioLiteral = Literal["16:9", "9:16", "1:1", "4:3"]
+VideoQualityLiteral = Literal["standard", "high"]
+
+
+class ImageGenerateBody(BaseModel):
+    prompt: str
+    aspect_ratio: ImageAspectRatioLiteral = "1:1"
+    num_images: int = 1
+    quality: ImageQualityLiteral = "standard"
+    style: ImageStyleLiteral = "none"
+    reference_image: str | None = None  # base64, optionally with a data: prefix
+
+
+class VideoGenerateBody(BaseModel):
+    prompt: str
+    aspect_ratio: VideoAspectRatioLiteral = "16:9"
+    duration: int = 5
+    quality: VideoQualityLiteral = "standard"
+    reference_image: str | None = None
+
+
+def _strip_data_url_prefix(value: str | None) -> str | None:
+    if value and value.startswith("data:"):
+        return value.split(",", 1)[-1]
+    return value
 
 
 def require_admin(x_admin_key: str | None = Header(default=None)) -> None:
@@ -294,3 +337,75 @@ async def billing_webhook(request: Request, stripe_signature: str | None = Heade
 
     billing.handle_webhook_event(event)
     return {"received": True}
+
+
+@app.post("/generate-image")
+def generate_image(request: ImageGenerateBody):
+    if not request.prompt.strip():
+        raise HTTPException(status_code=400, detail="A prompt is required.")
+    if not (1 <= request.num_images <= MAX_NUM_IMAGES):
+        raise HTTPException(status_code=400, detail=f"num_images must be between 1 and {MAX_NUM_IMAGES}.")
+
+    provider = get_image_provider()
+    try:
+        images = provider.generate(
+            ImageGenerationRequest(
+                prompt=request.prompt,
+                aspect_ratio=request.aspect_ratio,
+                num_images=request.num_images,
+                quality=request.quality,
+                style=request.style,
+                reference_image_b64=_strip_data_url_prefix(request.reference_image),
+            )
+        )
+    except ImageProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "images": [{"data": img.base64_data, "mime_type": img.mime_type} for img in images],
+    }
+
+
+@app.post("/generate-video")
+def generate_video(request: VideoGenerateBody):
+    if not request.prompt.strip():
+        raise HTTPException(status_code=400, detail="A prompt is required.")
+
+    provider = get_video_provider()
+    try:
+        job = provider.start(
+            VideoGenerationRequest(
+                prompt=request.prompt,
+                aspect_ratio=request.aspect_ratio,
+                duration=request.duration,
+                quality=request.quality,
+                reference_image_b64=_strip_data_url_prefix(request.reference_image),
+            )
+        )
+    except VideoProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "job_id": job.id,
+        "status": job.status.value,
+        "video_url": job.video_url,
+        "progress": job.progress,
+    }
+
+
+@app.get("/generate-video/{job_id}")
+def get_video_job(job_id: str):
+    provider = get_video_provider()
+    try:
+        job = provider.poll(job_id)
+    except VideoProviderError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "job_id": job.id,
+        "status": job.status.value,
+        "video_url": job.video_url,
+        "thumbnail_url": job.thumbnail_url,
+        "progress": job.progress,
+        "error": job.error,
+    }
