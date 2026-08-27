@@ -1,4 +1,5 @@
 import os
+import time
 
 import stripe
 
@@ -46,6 +47,38 @@ def _plan_for_price_id(price_id: str) -> str | None:
         if os.environ.get(env_var) == price_id:
             return plan
     return None
+
+
+_price_cache: dict = {"data": {}, "checked_at": 0.0}
+_PRICE_CACHE_TTL = 300  # prices rarely change; avoid hammering the Stripe API
+
+
+def get_live_prices() -> dict:
+    """Fetch amount/currency/interval for each configured plan directly from Stripe."""
+    if not is_configured():
+        return {}
+
+    if time.time() - _price_cache["checked_at"] < _PRICE_CACHE_TTL and _price_cache["data"]:
+        return _price_cache["data"]
+
+    result = {}
+    for plan, env_var in PRICE_ENV_VARS.items():
+        price_id = os.environ.get(env_var)
+        if not price_id:
+            continue
+        try:
+            price = stripe.Price.retrieve(price_id)
+            result[plan] = {
+                "amount": price["unit_amount"],
+                "currency": price["currency"],
+                "interval": price["recurring"]["interval"] if price.get("recurring") else None,
+            }
+        except stripe.error.StripeError:
+            continue
+
+    _price_cache["data"] = result
+    _price_cache["checked_at"] = time.time()
+    return result
 
 
 def create_checkout_session(plan: str, email: str) -> str:

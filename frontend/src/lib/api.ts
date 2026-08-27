@@ -1,4 +1,5 @@
 import type { PlanId } from "../types/plans";
+import type { LivePrice } from "./formatPrice";
 
 export const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:8000";
 
@@ -114,6 +115,16 @@ export async function fetchPlanForEmail(email: string): Promise<PlanId> {
   if (!response.ok) return "free";
   const data = await response.json();
   return (data.plan as PlanId) ?? "free";
+}
+
+export async function fetchLivePrices(): Promise<Partial<Record<PlanId, LivePrice>>> {
+  try {
+    const response = await fetch(`${API_URL}/billing/prices`);
+    if (!response.ok) return {};
+    return await response.json();
+  } catch {
+    return {};
+  }
 }
 
 export async function createCheckoutSession(email: string, plan: PlanId): Promise<string> {

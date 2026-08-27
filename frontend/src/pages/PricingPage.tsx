@@ -3,7 +3,14 @@ import { useSearchParams } from "react-router-dom";
 import { Check, Minus } from "lucide-react";
 import { TopBar } from "../components/layout/TopBar";
 import { MODEL_DISPLAY_NAME } from "../lib/brand";
-import { createBillingPortalSession, createCheckoutSession, fetchPlanForEmail, ChatApiError } from "../lib/api";
+import {
+  createBillingPortalSession,
+  createCheckoutSession,
+  fetchLivePrices,
+  fetchPlanForEmail,
+  ChatApiError,
+} from "../lib/api";
+import { formatPrice, type LivePrice } from "../lib/formatPrice";
 import { useSettingsStore } from "../store/settingsStore";
 import { PLAN_DEFINITIONS, PLAN_ORDER, type PlanId } from "../types/plans";
 import styles from "./PricingPage.module.css";
@@ -22,7 +29,18 @@ export function PricingPage() {
   const [pendingPlan, setPendingPlan] = useState<PlanId | null>(null);
   const [portalPending, setPortalPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [livePrices, setLivePrices] = useState<Partial<Record<PlanId, LivePrice>>>({});
   const checkoutStatus = searchParams.get("checkout");
+
+  useEffect(() => {
+    fetchLivePrices().then(setLivePrices);
+  }, []);
+
+  const displayPrice = (id: PlanId) => {
+    const live = livePrices[id];
+    if (live) return formatPrice(live);
+    return { amount: PLAN_DEFINITIONS[id].price, detail: PLAN_DEFINITIONS[id].priceDetail };
+  };
 
   useEffect(() => {
     if (!checkoutStatus || !email) return;
@@ -114,14 +132,15 @@ export function PricingPage() {
               const plan = PLAN_DEFINITIONS[id];
               const isCurrent = effectivePlan === plan.id;
               const isPaidPlan = plan.id !== "free";
+              const price = displayPrice(plan.id);
 
               return (
                 <div key={plan.id} className={isCurrent ? `${styles.card} ${styles.cardActive}` : styles.card}>
                   {isCurrent && <span className={styles.badge}>Current plan</span>}
                   <h2 className={styles.planName}>{plan.name}</h2>
                   <div className={styles.price}>
-                    <span className={styles.priceAmount}>{plan.price}</span>
-                    <span className={styles.priceDetail}>{plan.priceDetail}</span>
+                    <span className={styles.priceAmount}>{price.amount}</span>
+                    <span className={styles.priceDetail}>{price.detail}</span>
                   </div>
                   <p className={styles.bestFor}>{plan.bestFor}</p>
                   <p className={styles.tagline}>{plan.tagline}</p>
@@ -145,7 +164,7 @@ export function PricingPage() {
                       onClick={() => handleSubscribe(plan.id)}
                       disabled={pendingPlan !== null || !!hasRealSubscription}
                     >
-                      {pendingPlan === plan.id ? "Redirecting..." : `Subscribe — ${plan.price}${plan.priceDetail}`}
+                      {pendingPlan === plan.id ? "Redirecting..." : `Subscribe — ${price.amount}${price.detail}`}
                     </button>
                   ) : (
                     <button

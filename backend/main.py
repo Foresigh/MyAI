@@ -259,6 +259,11 @@ def admin_delete_user(email: str):
     return {"deleted": email}
 
 
+@app.get("/billing/prices")
+def billing_prices():
+    return billing.get_live_prices()
+
+
 @app.post("/billing/checkout")
 def billing_checkout(request: CheckoutRequest):
     try:
