@@ -1,18 +1,30 @@
-from __future__ import annotations
+﻿"""
+Image generation provider using Pollinations.ai (free, no API key required).
+Matches the interface main.py expects: MAX_NUM_IMAGES, ImageGenerationRequest,
+ImageProviderError, get_image_provider().
+"""
 
-import os
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Optional
+from urllib.parse import quote
+import base64
 
-ASPECT_RATIOS = ("1:1", "16:9", "9:16", "4:3", "3:4")
-QUALITIES = ("standard", "high")
-STYLES = ("none", "photorealistic", "digital-art", "illustration", "3d-render")
+import httpx
+
 
 MAX_NUM_IMAGES = 4
-MAX_REFERENCE_IMAGE_BYTES = 8_000_000
+
+POLLINATIONS_BASE_URL = "https://image.pollinations.ai/prompt"
+
+STYLE_TO_MODEL = {
+    "photorealistic": "flux",
+    "standard": "flux",
+    "fast": "turbo",
+}
 
 
 class ImageProviderError(Exception):
+    """Raised when image generation fails."""
     pass
 
 
@@ -22,39 +34,54 @@ class ImageGenerationRequest:
     aspect_ratio: str = "1:1"
     num_images: int = 1
     quality: str = "standard"
-    style: str = "none"
-    reference_image_b64: str | None = None  # raw base64 payload, no "data:" prefix
+    style: str = "photorealistic"
+    reference_image_b64: Optional[str] = None
 
 
 @dataclass
 class GeneratedImage:
     base64_data: str
-    mime_type: str = "image/png"
+    mime_type: str = "image/jpeg"
 
 
-class ImageProvider(ABC):
-    """Common interface every image-generation backend implements.
-
-    Swapping providers (local <-> cloud, or one cloud vendor <-> another) means
-    writing a new subclass here — nothing else in the app depends on how a
-    provider actually produces pixels.
-    """
-
-    @abstractmethod
+class PollinationsImageProvider:
     def generate(self, request: ImageGenerationRequest) -> list[GeneratedImage]:
-        ...
+        width, height = _aspect_ratio_to_dimensions(request.aspect_ratio)
+        model = STYLE_TO_MODEL.get(request.style, "flux")
+
+        results = []
+        try:
+            with httpx.Client(timeout=60.0) as client:
+                for i in range(request.num_images):
+                    encoded_prompt = quote(request.prompt)
+                    url = f"{POLLINATIONS_BASE_URL}/{encoded_prompt}"
+                    params = {
+                        "width": width,
+                        "height": height,
+                        "model": model,
+                        "nologo": "true",
+                        "seed": i * 1000 + (hash(request.prompt) % 1000),
+                    }
+                    response = client.get(url, params=params)
+                    response.raise_for_status()
+                    b64 = base64.b64encode(response.content).decode("utf-8")
+                    results.append(GeneratedImage(base64_data=b64, mime_type="image/jpeg"))
+        except httpx.HTTPError as exc:
+            raise ImageProviderError(f"Image generation failed: {exc}") from exc
+
+        return results
 
 
-def get_image_provider() -> ImageProvider:
-    provider_name = os.environ.get("IMAGE_PROVIDER", "cloud").lower()
-    if provider_name == "local":
-        from .local_provider import LocalImageProvider
+def _aspect_ratio_to_dimensions(aspect_ratio: str) -> tuple[int, int]:
+    mapping = {
+        "1:1": (1024, 1024),
+        "16:9": (1344, 768),
+        "9:16": (768, 1344),
+        "4:3": (1152, 896),
+        "3:4": (896, 1152),
+    }
+    return mapping.get(aspect_ratio, (1024, 1024))
 
-        return LocalImageProvider()
-    if provider_name == "cloud":
-        from .cloud_provider import CloudImageProvider
 
-        return CloudImageProvider()
-    raise ImageProviderError(
-        f"Unknown IMAGE_PROVIDER '{provider_name}'. Expected 'cloud' or 'local'."
-    )
+def get_image_provider() -> PollinationsImageProvider:
+    return PollinationsImageProvider()
