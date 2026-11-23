@@ -14,6 +14,32 @@ export interface StreamChatOptions {
   plan: PlanId;
   signal: AbortSignal;
   onToken: (chunk: string) => void;
+  model?: string;
+}
+
+export interface ArvoModel {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface ModelsResponse {
+  default: string;
+  models: ArvoModel[];
+}
+
+export async function fetchModels(): Promise<ModelsResponse> {
+  try {
+    const response = await fetch(`${API_URL}/models`);
+    if (!response.ok) return { default: "arvo-1.0", models: [] };
+    const data = (await response.json()) as Partial<ModelsResponse>;
+    return {
+      default: data.default ?? "arvo-1.0",
+      models: Array.isArray(data.models) ? data.models : [],
+    };
+  } catch {
+    return { default: "arvo-1.0", models: [] };
+  }
 }
 
 export class ChatApiError extends Error {
@@ -25,7 +51,7 @@ export class ChatApiError extends Error {
   }
 }
 
-export async function streamChat({ message, history, plan, signal, onToken }: StreamChatOptions): Promise<void> {
+export async function streamChat({ message, history, plan, signal, onToken, model }: StreamChatOptions): Promise<void> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/chat/stream`, {
@@ -34,7 +60,7 @@ export async function streamChat({ message, history, plan, signal, onToken }: St
         "Content-Type": "application/json",
         "X-Plan": plan,
       },
-      body: JSON.stringify({ message, history }),
+      body: JSON.stringify({ message, history, model }),
       signal,
     });
   } catch (err) {

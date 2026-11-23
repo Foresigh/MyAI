@@ -44,6 +44,7 @@ export function useChatStream() {
           history: historyMessages.map((m) => ({ role: m.role, content: m.content })),
           plan: effectivePlan(),
           signal: controller.signal,
+          model: useSettingsStore.getState().selectedModel,
           onToken: (chunk) => appendToMessage(targetId, assistantId, chunk),
         });
         updateMessage(targetId, assistantId, { pending: false });

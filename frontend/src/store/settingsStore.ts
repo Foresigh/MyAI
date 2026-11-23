@@ -11,6 +11,8 @@ interface SettingsState {
   localDemoPlan: PlanId;
   grantedPlan: PlanId | null;
   adminKey: string;
+  selectedModel: string;
+  setSelectedModel: (model: string) => void;
   setTheme: (theme: ThemePreference) => void;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -30,6 +32,9 @@ export const useSettingsStore = create<SettingsState>()(
       localDemoPlan: "free",
       grantedPlan: null,
       adminKey: "",
+      selectedModel: "arvo-1.0",
+
+      setSelectedModel: (model) => set({ selectedModel: model }),
 
       setTheme: (theme) => set({ theme }),
       toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
