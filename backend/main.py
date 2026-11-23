@@ -122,7 +122,7 @@ Do not claim to be a completely independent foundation model if that is not true
 If the user specifically asks what underlying model powers this version of ARVO,
 answer honestly:
 
-"I currently use Qwen 2.5 Coder 3B as the underlying language model powering this version of ARVO."
+"I'm Arvo, and I don't share details about the underlying model."
 
 Do not mention Alibaba Cloud unless the user specifically asks about the
 underlying model or its origin.
@@ -408,8 +408,31 @@ def health():
 
 
 # ============================================================
-# NORMAL CHAT
+# NORMAL CHAT (Groq)
 # ============================================================
+
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL = os.environ.get("GROQ_MODEL")
+GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+
+
+def _groq_ready() -> bool:
+    return bool(GROQ_API_KEY and GROQ_MODEL)
+
+
+def _groq_headers() -> dict:
+    return {
+        "Authorization": f"Bearer {GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+
+def _build_messages(message: str, history: list[Message]) -> list[dict]:
+    messages = [{"role": "system", "content": ARVO_SYSTEM_PROMPT}]
+    messages.extend({"role": m.role, "content": m.content} for m in history)
+    messages.append({"role": "user", "content": message})
+    return messages
+
 
 @app.post("/chat")
 def chat(
@@ -421,158 +444,107 @@ def chat(
 
     check_and_increment_usage(plan_id)
 
-    model = resolve_model_for_plan(plan_id)
-
-    prompt = f"""
-{ARVO_SYSTEM_PROMPT}
-
-USER:
-{request.message}
-
-ARVO:
-"""
-
-    try:
-
-        response = requests.post(
-
-            f"{OLLAMA_URL}/api/generate",
-
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "think": False,
-            },
-
-            timeout=120,
+    if not _groq_ready():
+        raise HTTPException(
+            status_code=500,
+            detail="GROQ_API_KEY and GROQ_MODEL must be set.",
         )
 
+    try:
+        response = requests.post(
+            GROQ_URL,
+            headers=_groq_headers(),
+            json={
+                "model": GROQ_MODEL,
+                "messages": _build_messages(request.message, []),
+                "stream": False,
+            },
+            timeout=60,
+        )
         response.raise_for_status()
 
     except requests.RequestException as exc:
-
         raise HTTPException(
             status_code=502,
-            detail=f"Could not reach Ollama: {exc}",
+            detail=f"Could not reach Groq: {exc}",
         ) from exc
 
     data = response.json()
 
     return {
         "response": strip_thinking(
-            data["response"]
+            data["choices"][0]["message"]["content"]
         )
     }
 
 
 # ============================================================
-# STREAMING CHAT
+# STREAMING CHAT (Groq)
 # ============================================================
 
-def stream_ollama_chat(
+def stream_groq_chat(
     message: str,
     history: list[Message],
-    model: str,
 ) -> Iterator[str]:
 
-    messages = [
-        {
-            "role": m.role,
-            "content": m.content,
-        }
-        for m in history
-    ]
-
-    # ARVO system identity
-    messages.insert(
-        0,
-        {
-            "role": "system",
-            "content": ARVO_SYSTEM_PROMPT,
-        },
-    )
-
-    messages.append(
-        {
-            "role": "user",
-            "content": message,
-        }
-    )
+    if not _groq_ready():
+        yield "data: " + json.dumps(
+            {"error": "GROQ_API_KEY and GROQ_MODEL must be set."}
+        ) + "\n\n"
+        return
 
     try:
 
         with requests.post(
-
-            f"{OLLAMA_URL}/api/chat",
-
+            GROQ_URL,
+            headers=_groq_headers(),
             json={
-                "model": model,
-                "messages": messages,
+                "model": GROQ_MODEL,
+                "messages": _build_messages(message, history),
                 "stream": True,
-                "think": False,
             },
-
             stream=True,
-
-            timeout=300,
-
+            timeout=120,
         ) as response:
 
+            if response.status_code == 429:
+                yield "data: " + json.dumps(
+                    {"error": "Rate limit reached. Please try again in a moment."}
+                ) + "\n\n"
+                return
+
             response.raise_for_status()
+            response.encoding = "utf-8"
 
-            for line in response.iter_lines():
+            for raw in response.iter_lines(decode_unicode=True):
 
-                if not line:
+                if not raw or not raw.startswith("data:"):
                     continue
 
-                chunk = json.loads(line)
+                payload = raw[5:].strip()
 
-                content = chunk.get(
-                    "message",
-                    {},
-                ).get(
-                    "content",
-                    "",
-                )
+                if payload == "[DONE]":
+                    break
+
+                try:
+                    chunk = json.loads(payload)
+                except json.JSONDecodeError:
+                    continue
+
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+
+                content = (choices[0].get("delta") or {}).get("content")
 
                 if content:
+                    yield "data: " + json.dumps({"content": content}) + "\n\n"
 
-                    yield (
-                        "data: "
-                        + json.dumps(
-                            {
-                                "content": content,
-                            }
-                        )
-                        + "\n\n"
-                    )
-
-                if chunk.get("done"):
-
-                    yield (
-                        "data: "
-                        + json.dumps(
-                            {
-                                "done": True,
-                            }
-                        )
-                        + "\n\n"
-                    )
-
-                    break
+            yield "data: " + json.dumps({"done": True}) + "\n\n"
 
     except requests.RequestException as exc:
 
-        yield (
-            "data: "
-            + json.dumps(
-                {
-                    "error": str(exc),
-                }
-            )
-            + "\n\n"
-        )
+        yield "data: " + json.dumps({"error": str(exc)}) + "\n\n"
 
 
 @app.post("/chat/stream")
@@ -585,14 +557,11 @@ def chat_stream(
 
     check_and_increment_usage(plan_id)
 
-    model = resolve_model_for_plan(plan_id)
-
     return StreamingResponse(
 
-        stream_ollama_chat(
+        stream_groq_chat(
             request.message,
             request.history,
-            model,
         ),
 
         media_type="text/event-stream",
