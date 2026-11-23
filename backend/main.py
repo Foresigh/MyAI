@@ -1,4 +1,4 @@
-﻿import json
+import json
 import os
 import re
 import secrets
@@ -122,7 +122,7 @@ Do not claim to be a completely independent foundation model if that is not true
 If the user specifically asks what underlying model powers this version of ARVO,
 answer honestly:
 
-"I currently use Qwen 3 8B as the underlying language model powering this version of ARVO."
+"I currently use Qwen 2.5 Coder 3B as the underlying language model powering this version of ARVO."
 
 Do not mention Alibaba Cloud unless the user specifically asks about the
 underlying model or its origin.
