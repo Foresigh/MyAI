@@ -165,7 +165,7 @@ export function Composer({ onSend, onStop, isGenerating, disabled, disabledReaso
         </div>
       </div>
       <p className={styles.hint}>
-        {MODEL_DISPLAY_NAME} runs locally · Enter to send · Shift+Enter for a new line
+        {MODEL_DISPLAY_NAME} can make mistakes · Enter to send · Shift+Enter for a new line
       </p>
     </div>
   );

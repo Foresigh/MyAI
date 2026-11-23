@@ -97,8 +97,8 @@ export function PricingPage() {
         <div className={styles.inner}>
           <h1 className={styles.heading}>Plans</h1>
           <p className={styles.subheading}>
-            {MODEL_DISPLAY_NAME} runs entirely on your own machine — plans control how much headroom and
-            priority you get, not cloud usage.
+            Every plan includes {MODEL_DISPLAY_NAME} — plans control how many messages you can send each day and
+            how much priority you get.
           </p>
 
           {checkoutStatus === "cancel" && (
@@ -181,9 +181,8 @@ export function PricingPage() {
           </div>
 
           <p className={styles.footnote}>
-            Paid plans are billed securely through Stripe. Higher tiers also request more local compute —{" "}
-            {MODEL_DISPLAY_NAME} automatically uses the best model available on this machine and falls back
-            gracefully if a larger one isn't installed yet.
+            Paid plans are billed securely through Stripe. Model availability can change — if a model is
+            temporarily unavailable, {MODEL_DISPLAY_NAME} falls back to the default model automatically.
           </p>
         </div>
       </div>
