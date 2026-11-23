@@ -8,7 +8,7 @@ DEFAULT_ID = "arvo-1.0"
 
 ARVO_MODELS = [
     {"id": "arvo-1.0", "name": "Arvo 1.0", "description": "Fast everyday assistant. Quick answers and general chat.", "groq": "openai/gpt-oss-20b", "license": "Apache-2.0", "enabled": True, "extra": {}},
-    {"id": "arvo-1.1", "name": "Arvo 1.1", "description": "Balanced. Good reasoning and writing.", "groq": "qwen/qwen3-32b", "license": "Apache-2.0", "enabled": True, "extra": {"reasoning_format": "hidden"}},
+    {"id": "arvo-1.1", "name": "Arvo 1.1", "description": "Balanced. Good reasoning and writing.", "groq": "qwen/qwen3.8-27b", "license": "Apache-2.0", "enabled": True, "extra": {"reasoning_format": "hidden"}},
     {"id": "arvo-1.2", "name": "Arvo 1.2", "description": "Most capable. Best for coding and hard problems.", "groq": "openai/gpt-oss-120b", "license": "Apache-2.0", "enabled": True, "extra": {}},
     {"id": "arvo-1.3", "name": "Arvo 1.3", "description": "Strong all-rounder for long answers.", "groq": "llama-3.3-70b-versatile", "license": "Llama community license", "enabled": False, "extra": {}},
 ]
