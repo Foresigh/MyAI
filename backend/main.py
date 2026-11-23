@@ -13,6 +13,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+import arvo_models
 
 load_dotenv()
 
@@ -137,6 +138,7 @@ You are ARVO's user-facing assistant.
 
 class ChatRequest(BaseModel):
     message: str
+    model: str | None = None
 
 
 class Message(BaseModel):
@@ -147,6 +149,7 @@ class Message(BaseModel):
 class ChatStreamRequest(BaseModel):
     message: str
     history: list[Message] = []
+    model: str | None = None
 
 
 PlanLiteral = Literal[
@@ -417,7 +420,7 @@ GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 
 def _groq_ready() -> bool:
-    return bool(GROQ_API_KEY and GROQ_MODEL)
+    return bool(GROQ_API_KEY)
 
 
 def _groq_headers() -> dict:
@@ -434,6 +437,11 @@ def _build_messages(message: str, history: list[Message]) -> list[dict]:
     return messages
 
 
+@app.get("/models")
+def list_models():
+    return {"default": arvo_models.DEFAULT_ID, "models": arvo_models.public_models()}
+
+
 @app.post("/chat")
 def chat(
     request: ChatRequest,
@@ -447,7 +455,7 @@ def chat(
     if not _groq_ready():
         raise HTTPException(
             status_code=500,
-            detail="GROQ_API_KEY and GROQ_MODEL must be set.",
+            detail="GROQ_API_KEY must be set.",
         )
 
     try:
@@ -455,7 +463,8 @@ def chat(
             GROQ_URL,
             headers=_groq_headers(),
             json={
-                "model": GROQ_MODEL,
+                "model": arvo_models.lookup(request.model)["groq"],
+                **arvo_models.lookup(request.model)["extra"],
                 "messages": _build_messages(request.message, []),
                 "stream": False,
             },
@@ -485,11 +494,12 @@ def chat(
 def stream_groq_chat(
     message: str,
     history: list[Message],
+    model_id: str | None = None,
 ) -> Iterator[str]:
 
     if not _groq_ready():
         yield "data: " + json.dumps(
-            {"error": "GROQ_API_KEY and GROQ_MODEL must be set."}
+            {"error": "GROQ_API_KEY must be set."}
         ) + "\n\n"
         return
 
@@ -499,7 +509,8 @@ def stream_groq_chat(
             GROQ_URL,
             headers=_groq_headers(),
             json={
-                "model": GROQ_MODEL,
+                "model": arvo_models.lookup(model_id)["groq"],
+                **arvo_models.lookup(model_id)["extra"],
                 "messages": _build_messages(message, history),
                 "stream": True,
             },
@@ -562,6 +573,7 @@ def chat_stream(
         stream_groq_chat(
             request.message,
             request.history,
+            request.model,
         ),
 
         media_type="text/event-stream",
