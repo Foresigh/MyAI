@@ -20,8 +20,6 @@ export function PricingPage() {
   const email = useSettingsStore((s) => s.email);
   const setEmail = useSettingsStore((s) => s.setEmail);
   const setGrantedPlan = useSettingsStore((s) => s.setGrantedPlan);
-  const localDemoPlan = useSettingsStore((s) => s.localDemoPlan);
-  const setLocalDemoPlan = useSettingsStore((s) => s.setLocalDemoPlan);
   const grantedPlan = useSettingsStore((s) => s.grantedPlan);
   const effectivePlan = useSettingsStore((s) => s.effectivePlan());
 
@@ -167,12 +165,8 @@ export function PricingPage() {
                       {pendingPlan === plan.id ? "Redirecting..." : `Subscribe — ${price.amount}${price.detail}`}
                     </button>
                   ) : (
-                    <button
-                      className={styles.selectButton}
-                      disabled={!!hasRealSubscription || localDemoPlan === plan.id}
-                      onClick={() => setLocalDemoPlan(plan.id)}
-                    >
-                      {localDemoPlan === plan.id ? "Selected" : "Switch to Free"}
+                    <button className={styles.selectButton} disabled>
+                      {isCurrent ? "Current plan" : "Included free"}
                     </button>
                   )}
                 </div>

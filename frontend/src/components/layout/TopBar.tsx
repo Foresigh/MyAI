@@ -23,23 +23,26 @@ export function TopBar({ title }: TopBarProps) {
   const openMobileSidebar = useUiStore((s) => s.openMobileSidebar);
   const selectedModel = useSettingsStore((s) => s.selectedModel);
   const setSelectedModel = useSettingsStore((s) => s.setSelectedModel);
+  const email = useSettingsStore((s) => s.email);
   const [models, setModels] = useState<ArvoModel[]>([]);
 
+  // Reload when the email or plan changes, since that changes which models unlock.
   useEffect(() => {
     let cancelled = false;
-    fetchModels().then((data) => {
+    fetchModels(email).then((data) => {
       if (cancelled) return;
       setModels(data.models);
       const current = useSettingsStore.getState().selectedModel;
-      if (data.models.length > 0 && !data.models.some((m) => m.id === current)) {
-        const fallback = data.models.find((m) => m.id === data.default) ?? data.models[0];
+      const usable = data.models.filter((m) => !m.locked);
+      if (usable.length > 0 && !usable.some((m) => m.id === current)) {
+        const fallback = usable.find((m) => m.id === data.default) ?? usable[0];
         setSelectedModel(fallback.id);
       }
     });
     return () => {
       cancelled = true;
     };
-  }, [setSelectedModel]);
+  }, [email, effectivePlan, setSelectedModel]);
 
   const activeModel = models.find((m) => m.id === selectedModel);
   const healthLabel = health === "ok" ? "Online" : health === "down" ? "Backend offline" : "Checking...";
@@ -93,8 +96,13 @@ export function TopBar({ title }: TopBarProps) {
             aria-label="Model"
           >
             {models.map((m) => (
-              <option key={m.id} value={m.id} title={m.description}>
-                {m.name}
+              <option
+                key={m.id}
+                value={m.id}
+                disabled={m.locked}
+                title={m.locked ? `${m.description} Included with ${m.required_plan} and above.` : m.description}
+              >
+                {m.locked ? `${m.name} · ${m.required_plan}` : m.name}
               </option>
             ))}
           </select>

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Laptop, Moon, ShieldCheck, Sun, X } from "lucide-react";
 import { useSettingsStore } from "../../store/settingsStore";
 import { fetchPlanForEmail } from "../../lib/api";
-import { PLAN_DEFINITIONS, PLAN_ORDER, type PlanId } from "../../types/plans";
+import { PLAN_DEFINITIONS } from "../../types/plans";
 import styles from "./SettingsPanel.module.css";
 
 interface SettingsPanelProps {
@@ -17,8 +17,6 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
   const setTheme = useSettingsStore((s) => s.setTheme);
   const email = useSettingsStore((s) => s.email);
   const setEmail = useSettingsStore((s) => s.setEmail);
-  const localDemoPlan = useSettingsStore((s) => s.localDemoPlan);
-  const setLocalDemoPlan = useSettingsStore((s) => s.setLocalDemoPlan);
   const grantedPlan = useSettingsStore((s) => s.grantedPlan);
   const setGrantedPlan = useSettingsStore((s) => s.setGrantedPlan);
 
@@ -92,24 +90,11 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
         </section>
 
         <section className={styles.section}>
-          <h3>Plan (demo)</h3>
+          <h3>Your plan</h3>
           <p className={styles.hint}>
-            No billing is wired up yet — this switch only simulates a plan locally for trying out limits and model
-            selection.
+            You're on the <strong>{PLAN_DEFINITIONS[grantedPlan ?? "free"].name}</strong> plan. Paid plans are linked to
+            the email above, so enter the email you subscribed with.
           </p>
-          <select
-            className={styles.planSelect}
-            value={localDemoPlan}
-            onChange={(e) => setLocalDemoPlan(e.target.value as PlanId)}
-            disabled={!!grantedPlan}
-          >
-            {PLAN_ORDER.map((p) => (
-              <option key={p} value={p}>
-                {PLAN_DEFINITIONS[p].name} — {PLAN_DEFINITIONS[p].price}
-                {PLAN_DEFINITIONS[p].priceDetail === "forever" ? "" : PLAN_DEFINITIONS[p].priceDetail}
-              </option>
-            ))}
-          </select>
           <button className={styles.pricingLink} onClick={() => { onClose(); navigate("/pricing"); }}>
             View plan details &amp; pricing
           </button>

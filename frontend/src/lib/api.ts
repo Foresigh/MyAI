@@ -11,7 +11,8 @@ export interface StreamHistoryItem {
 export interface StreamChatOptions {
   message: string;
   history: StreamHistoryItem[];
-  plan: PlanId;
+  /** Email used to look up the user's plan on the server. */
+  email: string;
   signal: AbortSignal;
   onToken: (chunk: string) => void;
   model?: string;
@@ -23,6 +24,13 @@ export interface ArvoModel {
   id: string;
   name: string;
   description: string;
+  /** True when the user's plan doesn't include this model. */
+  locked?: boolean;
+  required_plan?: string;
+}
+
+function userHeaders(email: string): Record<string, string> {
+  return email ? { "X-User-Email": email } : {};
 }
 
 export interface ModelsResponse {
@@ -30,9 +38,9 @@ export interface ModelsResponse {
   models: ArvoModel[];
 }
 
-export async function fetchModels(): Promise<ModelsResponse> {
+export async function fetchModels(email = ""): Promise<ModelsResponse> {
   try {
-    const response = await fetch(`${API_URL}/models`);
+    const response = await fetch(`${API_URL}/models`, { headers: userHeaders(email) });
     if (!response.ok) return { default: "arvo-1.0", models: [] };
     const data = (await response.json()) as Partial<ModelsResponse>;
     return {
@@ -53,14 +61,14 @@ export class ChatApiError extends Error {
   }
 }
 
-export async function streamChat({ message, history, plan, signal, onToken, model, images }: StreamChatOptions): Promise<void> {
+export async function streamChat({ message, history, email, signal, onToken, model, images }: StreamChatOptions): Promise<void> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/chat/stream`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Plan": plan,
+        ...userHeaders(email),
       },
       body: JSON.stringify({ message, history, model, images: images?.length ? images : undefined }),
       signal,

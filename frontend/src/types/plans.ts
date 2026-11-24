@@ -37,6 +37,7 @@ export const PLAN_DEFINITIONS: Record<PlanId, PlanDefinition> = {
       { label: "Standard response priority", included: true },
       { label: "Markdown & code rendering", included: true },
       { label: "Extended capacity", included: false },
+      { label: "Picture reading & Arvo 1.1 / 1.2", included: false },
       { label: "Priority generation", included: false },
     ],
   },
@@ -56,7 +57,7 @@ export const PLAN_DEFINITIONS: Record<PlanId, PlanDefinition> = {
       { label: "Priority generation", included: true },
       { label: "Full conversation context", included: true },
       { label: "Early access to new features", included: true },
-      { label: "Model switching", included: false },
+      { label: "Model switching & picture reading", included: false },
     ],
   },
   pro: {
@@ -71,6 +72,7 @@ export const PLAN_DEFINITIONS: Record<PlanId, PlanDefinition> = {
     contextWindow: "Full model context window",
     features: [
       { label: "Expanded Arvo 1.0 capacity", included: true },
+      { label: "Picture reading", included: true },
       { label: "1,500 messages / day", included: true },
       { label: "Priority generation", included: true },
       { label: "Full conversation context", included: true },
@@ -90,6 +92,7 @@ export const PLAN_DEFINITIONS: Record<PlanId, PlanDefinition> = {
     contextWindow: "Full model context window",
     features: [
       { label: "Maximum Arvo 1.0 capacity", included: true },
+      { label: "Picture reading", included: true },
       { label: "4,000 messages / day", included: true },
       { label: "Highest priority queue", included: true },
       { label: "Full conversation context", included: true },

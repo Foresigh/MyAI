@@ -45,8 +45,8 @@ export const useSettingsStore = create<SettingsState>()(
       setAdminKey: (key) => set({ adminKey: key }),
 
       effectivePlan: () => {
-        const state = get();
-        return state.grantedPlan ?? state.localDemoPlan;
+        // The server decides the real plan; this mirrors it for display.
+        return get().grantedPlan ?? "free";
       },
     }),
     { name: "myai-settings" }

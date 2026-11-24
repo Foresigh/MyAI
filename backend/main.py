@@ -300,47 +300,62 @@ _usage_lock = threading.Lock()
 _usage: dict[str, dict] = {}
 
 
-def check_and_increment_usage(plan_id: str) -> None:
+def _client_ip(http_request: Request) -> str:
+    # Railway's proxy puts the real client address first in X-Forwarded-For.
+    forwarded = http_request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return http_request.client.host if http_request.client else "unknown"
+
+
+def check_and_increment_usage(plan_id: str, usage_key: str) -> None:
+    """Count one message against this user's daily limit.
+
+    Paid users are counted per email. Free users are counted per IP address,
+    so typing a new email does not reset the free limit.
+    """
 
     today = date.today().isoformat()
-
-    limit = plans.PLAN_DAILY_LIMITS.get(
-        plan_id,
-        plans.PLAN_DAILY_LIMITS["free"],
-    )
+    limit = plans.PLAN_DAILY_LIMITS.get(plan_id, plans.PLAN_DAILY_LIMITS["free"])
 
     with _usage_lock:
-
-        bucket = _usage.get(plan_id)
-
+        bucket = _usage.get(usage_key)
         if not bucket or bucket["date"] != today:
-            bucket = {
-                "date": today,
-                "count": 0,
-            }
-
+            bucket = {"date": today, "count": 0}
         if bucket["count"] >= limit:
-
-            _usage[plan_id] = bucket
-
+            _usage[usage_key] = bucket
             raise HTTPException(
                 status_code=429,
                 detail=(
                     f"Daily message limit reached for the "
-                    f"{plan_id} plan ({limit}/day)."
+                    f"{plans.PLAN_NAMES.get(plan_id, plan_id)} plan ({limit}/day)."
                 ),
             )
-
         bucket["count"] += 1
+        _usage[usage_key] = bucket
 
-        _usage[plan_id] = bucket
+
+def get_plan_for_request(http_request: Request) -> tuple[str, str]:
+    """Return (plan_id, usage_key) for this request.
+
+    The plan comes from the grants file (set by Stripe webhooks and the admin
+    page), looked up by the email the client sends. The client can no longer
+    choose its own plan. Emails are not verified yet, so this stops casual
+    upgrades but not someone who knows a paying user's email.
+    """
+    email = (http_request.headers.get("x-user-email") or "").strip().lower()
+    plan_id = plans.normalize_plan(users.get_plan(email)) if email else "free"
+    usage_key = f"email:{email}" if plan_id != "free" else f"ip:{_client_ip(http_request)}"
+    return plan_id, usage_key
 
 
-def get_plan_from_request(
-    x_plan: str | None,
-) -> str:
-
-    return plans.normalize_plan(x_plan)
+def model_access_error(plan_id: str, model_id: str | None) -> str | None:
+    model_id = model_id or arvo_models.DEFAULT_ID
+    if plans.can_use_model(plan_id, model_id):
+        return None
+    needed = plans.PLAN_NAMES[plans.required_plan_for_model(model_id)]
+    name = next((m["name"] for m in arvo_models.ARVO_MODELS if m["id"] == model_id), model_id)
+    return f"{name} is included with the {needed} plan and above. Upgrade on the Plans page to use it."
 
 
 # ============================================================
@@ -523,19 +538,32 @@ def _post_groq(payload: dict, *, stream: bool, timeout: int) -> tuple[requests.R
 
 
 @app.get("/models")
-def list_models():
-    return {"default": arvo_models.DEFAULT_ID, "models": arvo_models.public_models()}
+def list_models(http_request: Request):
+    plan_id, _ = get_plan_for_request(http_request)
+    models = []
+    for m in arvo_models.public_models():
+        locked = not plans.can_use_model(plan_id, m["id"])
+        models.append({
+            **m,
+            "locked": locked,
+            "required_plan": plans.PLAN_NAMES[plans.required_plan_for_model(m["id"])],
+        })
+    return {"default": arvo_models.DEFAULT_ID, "plan": plan_id, "models": models}
 
 
 @app.post("/chat")
 def chat(
     request: ChatRequest,
-    x_plan: str | None = Header(default=None),
+    http_request: Request,
 ):
 
-    plan_id = get_plan_from_request(x_plan)
+    plan_id, usage_key = get_plan_for_request(http_request)
 
-    check_and_increment_usage(plan_id)
+    access_error = model_access_error(plan_id, request.model)
+    if access_error:
+        raise HTTPException(status_code=403, detail=access_error)
+
+    check_and_increment_usage(plan_id, usage_key)
 
     if not _groq_ready():
         raise HTTPException(
@@ -644,15 +672,36 @@ def stream_groq_chat(
         yield "data: " + json.dumps({"error": str(exc)}) + "\n\n"
 
 
+def _sse_error(message: str) -> StreamingResponse:
+    return StreamingResponse(
+        iter(["data: " + json.dumps({"error": message}) + "\n\n"]),
+        media_type="text/event-stream",
+    )
+
+
 @app.post("/chat/stream")
 def chat_stream(
     request: ChatStreamRequest,
-    x_plan: str | None = Header(default=None),
+    http_request: Request,
 ):
 
-    plan_id = get_plan_from_request(x_plan)
+    plan_id, usage_key = get_plan_for_request(http_request)
 
-    check_and_increment_usage(plan_id)
+    model_id = request.model or arvo_models.DEFAULT_ID
+    if request.images and not arvo_models.supports_vision(model_id):
+        vision_id = arvo_models.vision_model_id()
+        if vision_id and not plans.can_use_model(plan_id, vision_id):
+            needed = plans.PLAN_NAMES[plans.required_plan_for_model(vision_id)]
+            return _sse_error(
+                f"Reading pictures is included with the {needed} plan and above. "
+                "Upgrade on the Plans page to use it."
+            )
+    else:
+        access_error = model_access_error(plan_id, model_id)
+        if access_error:
+            return _sse_error(access_error)
+
+    check_and_increment_usage(plan_id, usage_key)
 
     return StreamingResponse(
 

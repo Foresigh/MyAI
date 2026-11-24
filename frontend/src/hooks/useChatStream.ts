@@ -26,7 +26,6 @@ export function useChatStream() {
   const updateMessage = useConversationStore((s) => s.updateMessage);
   const removeMessage = useConversationStore((s) => s.removeMessage);
   const getConversation = useConversationStore((s) => s.getConversation);
-  const effectivePlan = useSettingsStore((s) => s.effectivePlan);
 
   const runAssistantTurn = useCallback(
     async (targetId: string, historyMessages: ChatMessage[], userText: string, images: string[] = []) => {
@@ -47,7 +46,7 @@ export function useChatStream() {
         await streamChat({
           message: userText,
           history: historyMessages.map((m) => ({ role: m.role, content: m.content })),
-          plan: effectivePlan(),
+          email: useSettingsStore.getState().email,
           signal: controller.signal,
           model: useSettingsStore.getState().selectedModel,
           images,
@@ -71,7 +70,7 @@ export function useChatStream() {
         abortRef.current = null;
       }
     },
-    [addMessage, appendToMessage, updateMessage, removeMessage, getConversation, effectivePlan]
+    [addMessage, appendToMessage, updateMessage, removeMessage, getConversation]
   );
 
   const send = useCallback(
