@@ -140,7 +140,7 @@ export async function sendChatOnce(message: string): Promise<string> {
   return data.response as string;
 }
 
-export async function fetchHealth(): Promise<{ status: string; model?: string; model_available?: boolean }> {
+export async function fetchHealth(): Promise<{ status: string; chat?: string; storage?: "permanent" | "temporary" }> {
   const response = await fetch(`${API_URL}/health`);
   return response.json();
 }

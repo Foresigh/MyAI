@@ -6,9 +6,8 @@ a daily GPU-time quota: about 2 minutes a day without a token, or about
 5 minutes a day with a free Hugging Face account token in HF_TOKEN. All Arvo
 users share that quota, so clips are kept short.
 
-Finished clips are copied into backend/data/videos and served by the
-/generate-video/{job_id}/file endpoint. Railway's disk is not permanent, so
-old clips disappear when the backend redeploys.
+Finished clips are saved in the data folder (a Railway volume when one is
+attached, see storage.py) and served by /generate-video/{job_id}/file.
 """
 
 from __future__ import annotations
@@ -22,6 +21,8 @@ import threading
 import time
 import uuid
 
+import storage
+
 from .provider import (
     VideoGenerationRequest,
     VideoJob,
@@ -34,7 +35,7 @@ logger = logging.getLogger("arvo.video")
 
 SPACE_ID = os.environ.get("HF_VIDEO_SPACE", "Lightricks/ltx-video-distilled")
 MAX_FREE_SECONDS = float(os.environ.get("FREE_VIDEO_MAX_SECONDS", "5"))
-VIDEO_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "videos")
+
 MAX_STORED_VIDEOS = 100
 JOB_TTL_SECONDS = 3600
 
@@ -54,11 +55,15 @@ _jobs: dict[str, dict] = {}
 _jobs_lock = threading.Lock()
 
 
+def video_dir() -> str:
+    return os.path.join(storage.data_dir(), "videos")
+
+
 def video_file_path(job_id: str) -> str | None:
     """Path of a finished clip, or None. Only ids this server created are valid."""
     if not job_id.isalnum():
         return None
-    path = os.path.join(VIDEO_DIR, f"{job_id}.mp4")
+    path = os.path.join(video_dir(), f"{job_id}.mp4")
     return path if os.path.exists(path) else None
 
 
@@ -102,7 +107,7 @@ def _prune_old() -> None:
             _jobs.pop(job_id, None)
     try:
         files = sorted(
-            (os.path.join(VIDEO_DIR, f) for f in os.listdir(VIDEO_DIR) if f.endswith(".mp4")),
+            (os.path.join(video_dir(), f) for f in os.listdir(video_dir()) if f.endswith(".mp4")),
             key=os.path.getmtime,
         )
         for path in files[:-MAX_STORED_VIDEOS]:
@@ -191,8 +196,8 @@ class FreeVideoProvider(VideoProvider):
             output = job.result()
             video = output[0]
             source = video.get("video") if isinstance(video, dict) else video
-            os.makedirs(VIDEO_DIR, exist_ok=True)
-            shutil.copyfile(source, os.path.join(VIDEO_DIR, f"{job_id}.mp4"))
+            os.makedirs(video_dir(), exist_ok=True)
+            shutil.copyfile(source, os.path.join(video_dir(), f"{job_id}.mp4"))
             result = VideoJob(id=job_id, status=VideoJobStatus.COMPLETED, video_url=f"/generate-video/{job_id}/file")
         except Exception as exc:
             result = VideoJob(id=job_id, status=VideoJobStatus.FAILED, error=_friendly_error(exc))

@@ -16,8 +16,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 import arvo_models
+import storage
 
 load_dotenv()
+storage.warn_if_temporary()
 
 import billing
 import plans
@@ -378,6 +380,8 @@ def health():
     return {
         "status": "ok" if chat_ready else "error",
         "chat": "ready" if chat_ready else "GROQ_API_KEY is not set",
+        # "temporary" means grants and videos are erased on every deploy.
+        "storage": "permanent" if storage.is_persistent() else "temporary",
     }
 
 

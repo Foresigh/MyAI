@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { ShieldAlert, Trash2 } from "lucide-react";
+import { HardDrive, ShieldAlert, Trash2 } from "lucide-react";
 import { TopBar } from "../components/layout/TopBar";
 import { useSettingsStore } from "../store/settingsStore";
-import { adminDeleteUser, adminListUsers, adminUpsertUser, type AdminUserGrant, ChatApiError } from "../lib/api";
+import { adminDeleteUser, adminListUsers, adminUpsertUser, type AdminUserGrant, ChatApiError, fetchHealth } from "../lib/api";
 import { PLAN_DEFINITIONS, PLAN_ORDER, type PlanId } from "../types/plans";
 import styles from "./AdminPage.module.css";
 
@@ -19,6 +19,13 @@ export function AdminPage() {
   const [newPlan, setNewPlan] = useState<PlanId>("hobby");
 
   const requestIdRef = useRef(0);
+  const [temporaryStorage, setTemporaryStorage] = useState(false);
+
+  useEffect(() => {
+    fetchHealth()
+      .then((h) => setTemporaryStorage(h.storage === "temporary"))
+      .catch(() => undefined);
+  }, []);
 
   const loadUsers = async (key: string) => {
     const requestId = ++requestIdRef.current;
@@ -87,6 +94,16 @@ export function AdminPage() {
             This is a lightweight local gate, not real authentication. Anyone with the admin key can grant plans.
             Keep the key private and only use this on a trusted machine.
           </div>
+
+          {temporaryStorage && (
+            <div className={styles.warning} role="alert">
+              <HardDrive size={15} />
+              <span>
+                Grants aren't saved permanently yet: the server erases them every time Arvo is updated. In Railway,
+                attach a volume to the backend service (any mount path, e.g. /data) and grants will be kept.
+              </span>
+            </div>
+          )}
 
           {!users && (
             <form className={styles.unlockForm} onSubmit={handleUnlock}>

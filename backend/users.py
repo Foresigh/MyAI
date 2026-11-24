@@ -1,32 +1,38 @@
 import json
+import logging
 import os
 import threading
 from datetime import datetime, timezone
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-USERS_FILE = os.path.join(DATA_DIR, "users.json")
-_lock = threading.Lock()
+import storage
+
+logger = logging.getLogger("arvo.users")
+
+# Held across each read-modify-write so two updates at once can't undo each other.
+_lock = threading.RLock()
 
 
-def _ensure_file() -> None:
-    os.makedirs(DATA_DIR, exist_ok=True)
-    if not os.path.exists(USERS_FILE):
-        with open(USERS_FILE, "w") as f:
-            json.dump({}, f)
+def users_file() -> str:
+    return os.path.join(storage.data_dir(), "users.json")
 
 
 def load_users() -> dict:
-    _ensure_file()
     with _lock:
-        with open(USERS_FILE, "r") as f:
-            return json.load(f)
+        path = users_file()
+        if not os.path.exists(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data if isinstance(data, dict) else {}
+        except (OSError, ValueError) as exc:
+            logger.error("Could not read %s: %s", path, exc)
+            return {}
 
 
 def save_users(users: dict) -> None:
-    _ensure_file()
     with _lock:
-        with open(USERS_FILE, "w") as f:
-            json.dump(users, f, indent=2)
+        storage.write_json_atomic(users_file(), users)
 
 
 def get_plan(email: str) -> str:
@@ -47,6 +53,11 @@ def upsert_user(
     stripe_customer_id: str | None = None,
     stripe_subscription_id: str | None = None,
 ) -> dict:
+    with _lock:
+        return _upsert_locked(email, plan, note, source, stripe_customer_id, stripe_subscription_id)
+
+
+def _upsert_locked(email, plan, note, source, stripe_customer_id, stripe_subscription_id) -> dict:
     users = load_users()
     key = email.lower()
     existing = users.get(key, {})
@@ -65,9 +76,10 @@ def upsert_user(
 
 
 def delete_user(email: str) -> None:
-    users = load_users()
-    users.pop(email.lower(), None)
-    save_users(users)
+    with _lock:
+        users = load_users()
+        users.pop(email.lower(), None)
+        save_users(users)
 
 
 def list_users() -> list:
