@@ -1,0 +1,59 @@
+{
+  "name": "arvo-desktop",
+  "productName": "Arvo",
+  "version": "0.1.0",
+  "description": "Arvo for your computer: chat with Arvo and let it code in your projects.",
+  "author": "Kayi Berisa",
+  "private": true,
+  "main": "electron/main.cjs",
+  "scripts": {
+    "dev": "vite build && electron .",
+    "start": "electron .",
+    "build": "tsc --noEmit && vite build",
+    "test": "node electron/test-tools.cjs",
+    "dist": "npm run build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.arvo.desktop",
+    "productName": "Arvo",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "!electron/test-*.cjs",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
+  "dependencies": {
+    "lucide-react": "^1.78.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  }
+}
