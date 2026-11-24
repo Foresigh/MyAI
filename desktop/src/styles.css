@@ -293,3 +293,21 @@ button.mode-item:hover { background: var(--elevated); }
 .history-delete { border: 0; background: transparent; color: var(--text-3); padding: 6px 8px; border-radius: 7px; opacity: 0; }
 .history-item:hover .history-delete { opacity: 1; }
 .history-delete:hover { color: var(--danger); }
+
+/* Copy buttons */
+.code-block, .preview { position: relative; }
+.copy-btn {
+  display: inline-flex; align-items: center; gap: 5px; padding: 3px 8px;
+  border: 1px solid var(--border); border-radius: 7px; background: var(--elevated);
+  color: var(--text-2); font-size: 12px; cursor: pointer; flex-shrink: 0;
+}
+.copy-btn:hover { color: var(--text); border-color: var(--text-3); }
+.copy-btn.copied { color: var(--accent); }
+.copy-btn.floating { position: absolute; top: 7px; right: 7px; opacity: .7; transition: opacity .12s; }
+.code-block:hover .copy-btn.floating, .preview:hover .copy-btn.floating,
+.copy-btn.floating:focus-visible, .copy-btn.floating.copied { opacity: 1; }
+.tool-head { display: flex; align-items: center; }
+.tool-head .tool-row { flex: 1; min-width: 0; }
+.copy-btn.row-copy { margin-right: 8px; padding: 3px 6px; border-color: transparent; background: transparent; opacity: .6; }
+.copy-btn.row-copy span { display: none; }
+.tool:hover .copy-btn.row-copy, .copy-btn.row-copy.copied { opacity: 1; }

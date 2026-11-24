@@ -12,6 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { Item, Preview } from "./types";
+import { CopyButton } from "./CopyButton";
 
 type ToolItem = Extract<Item, { kind: "tool" }>;
 
@@ -71,6 +72,7 @@ function PreviewBody({ preview }: { preview: Preview }) {
   if (preview.kind === "command") {
     return (
       <div className="preview">
+        <CopyButton text={preview.command} label="Copy command" className="floating" />
         <pre className="code command">
           <span className="prompt">{preview.cwd && preview.cwd !== "." ? `${preview.cwd} ` : ""}&gt; </span>
           {preview.command}
@@ -132,6 +134,7 @@ export function ToolCard({ item, onDecide }: Props) {
 
   return (
     <div className={`tool ${item.status}`}>
+      <div className="tool-head">
       <button
         className="tool-row"
         onClick={() => setOpen((v) => !v)}
@@ -153,6 +156,8 @@ export function ToolCard({ item, onDecide }: Props) {
           )}
         </span>
       </button>
+      {isCommand && !asking && <CopyButton text={str(item.args.command)} label="Copy command" className="row-copy" />}
+      </div>
 
       {asking && item.preview && (
         <div className="approval">
@@ -172,7 +177,12 @@ export function ToolCard({ item, onDecide }: Props) {
         </div>
       )}
 
-      {expanded && hasOutput && item.status !== "declined" && <pre className="code output">{item.output}</pre>}
+      {expanded && hasOutput && item.status !== "declined" && (
+        <div className="code-block">
+          <pre className="code output">{item.output}</pre>
+          <CopyButton text={item.output} label="Copy output" className="floating" />
+        </div>
+      )}
     </div>
   );
 }

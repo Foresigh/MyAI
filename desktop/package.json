@@ -1,7 +1,7 @@
 {
   "name": "arvo-desktop",
   "productName": "Arvo",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Arvo for your computer: chat with Arvo and let it code in your projects.",
   "author": "Kayi Berisa",
   "private": true,

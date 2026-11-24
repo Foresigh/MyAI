@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("arvo", {
   respondApproval: (id, decision) => ipcRenderer.invoke("approval:respond", id, decision),
   getUpdate: () => ipcRenderer.invoke("update:status"),
   installUpdate: () => ipcRenderer.invoke("update:install"),
+  copyText: (text) => ipcRenderer.invoke("clipboard:write", text),
   onEvent: (callback) => {
     const listener = (_e, event) => callback(event);
     ipcRenderer.on("agent:event", listener);

@@ -5,6 +5,7 @@ import { ArrowUp, Download, Folder, FolderOpen, ListChecks, Plus, Settings as Se
 import { ModeMenu, cycleModes } from "./ModeMenu";
 import { HistoryMenu } from "./HistoryMenu";
 import { ToolCard } from "./ToolCard";
+import { CodeBlock } from "./CopyButton";
 import type { AgentEvent, ApprovalMode, ArvoModel, Item, Settings, UpdateState, Workspace } from "./types";
 
 const arvo = window.arvo;
@@ -346,7 +347,7 @@ export default function App() {
                 <div key={it.id} className="assistant-msg markdown">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
-                    components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer">{children}</a> }}
+                    components={{ a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer">{children}</a>, pre: ({ node: _node, ...rest }) => <CodeBlock {...rest} /> }}
                   >
                     {it.text}
                   </ReactMarkdown>

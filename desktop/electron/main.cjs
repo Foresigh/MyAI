@@ -2,7 +2,7 @@
 // file and the coding session, and runs the agent loop (agent.cjs) so the
 // tools can use this computer's files and shell.
 
-const { app, BrowserWindow, dialog, ipcMain, shell } = require("electron");
+const { app, BrowserWindow, clipboard, dialog, ipcMain, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const { runTurn } = require("./agent.cjs");
@@ -104,6 +104,7 @@ function stopRunning() {
   pendingApprovals.clear();
 }
 
+ipcMain.handle("clipboard:write", (_e, text) => clipboard.writeText(String(text ?? "")));
 ipcMain.handle("settings:get", () => ({ ...settings, defaultApiUrl: DEFAULT_API_URL }));
 
 ipcMain.handle("settings:set", (_e, patch) => {

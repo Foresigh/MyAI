@@ -91,6 +91,7 @@ export interface ArvoBridge {
   respondApproval(id: string, decision: "allow" | "always" | "deny"): Promise<void>;
   getUpdate(): Promise<UpdateState>;
   installUpdate(): Promise<void>;
+  copyText(text: string): Promise<void>;
   onEvent(callback: (event: AgentEvent) => void): () => void;
 }
 
