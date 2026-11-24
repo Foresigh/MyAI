@@ -15,6 +15,8 @@ export interface StreamChatOptions {
   signal: AbortSignal;
   onToken: (chunk: string) => void;
   model?: string;
+  /** Pictures as data URLs (JPEG/PNG/WebP/GIF). */
+  images?: string[];
 }
 
 export interface ArvoModel {
@@ -51,7 +53,7 @@ export class ChatApiError extends Error {
   }
 }
 
-export async function streamChat({ message, history, plan, signal, onToken, model }: StreamChatOptions): Promise<void> {
+export async function streamChat({ message, history, plan, signal, onToken, model, images }: StreamChatOptions): Promise<void> {
   let response: Response;
   try {
     response = await fetch(`${API_URL}/chat/stream`, {
@@ -60,7 +62,7 @@ export async function streamChat({ message, history, plan, signal, onToken, mode
         "Content-Type": "application/json",
         "X-Plan": plan,
       },
-      body: JSON.stringify({ message, history, model }),
+      body: JSON.stringify({ message, history, model, images: images?.length ? images : undefined }),
       signal,
     });
   } catch (err) {

@@ -109,6 +109,21 @@ export const useConversationStore = create<ConversationState>()(
 
       getConversation: (id) => get().conversations.find((c) => c.id === id),
     }),
-    { name: "myai-conversations" }
+    {
+      name: "myai-conversations",
+      // Full-size pictures would quickly fill browser storage, so only their
+      // small thumbnails are saved with chat history.
+      partialize: (state) => ({
+        ...state,
+        conversations: state.conversations.map((c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.attachments?.some((a) => a.dataUrl)
+              ? { ...m, attachments: m.attachments.map(({ dataUrl: _dataUrl, ...rest }) => rest) }
+              : m
+          ),
+        })),
+      }),
+    }
   )
 );

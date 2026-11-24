@@ -8,7 +8,7 @@ DEFAULT_ID = "arvo-1.0"
 
 ARVO_MODELS = [
     {"id": "arvo-1.0", "name": "Arvo 1.0", "description": "Fast everyday assistant. Quick answers and general chat.", "groq": "openai/gpt-oss-20b", "license": "Apache-2.0", "enabled": True, "extra": {}},
-    {"id": "arvo-1.1", "name": "Arvo 1.1", "description": "Balanced. Good reasoning and writing.", "groq": "qwen/qwen3.8-27b", "license": "Apache-2.0", "enabled": True, "extra": {"reasoning_format": "hidden"}},
+    {"id": "arvo-1.1", "name": "Arvo 1.1", "description": "Balanced. Good reasoning and writing. Can read pictures.", "groq": "qwen/qwen3.8-27b", "license": "Apache-2.0", "enabled": True, "extra": {"reasoning_format": "hidden"}, "vision": True},
     {"id": "arvo-1.2", "name": "Arvo 1.2", "description": "Most capable. Best for coding and hard problems.", "groq": "openai/gpt-oss-120b", "license": "Apache-2.0", "enabled": True, "extra": {}},
     {"id": "arvo-1.3", "name": "Arvo 1.3", "description": "Strong all-rounder for long answers.", "groq": "llama-3.3-70b-versatile", "license": "Llama community license", "enabled": False, "extra": {}},
 ]
@@ -49,6 +49,18 @@ def _live_models():
 def public_models():
     return [{"id": m["id"], "name": m["name"], "description": m["description"]} for m in _live_models()]
 
+
+
+def vision_model_id():
+    """Id of a live model that can read images, or None."""
+    for m in _live_models():
+        if m.get("vision"):
+            return m["id"]
+    return None
+
+
+def supports_vision(model_id):
+    return any(m["id"] == model_id and m.get("vision") for m in _live_models())
 
 
 def lookup(model_id):

@@ -15,6 +15,7 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, isLastAssistant, isGenerating, onRegenerate }: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
   const isUser = message.role === "user";
+  const pictures = (message.attachments ?? []).filter((a) => a.kind === "image" && (a.dataUrl || a.thumbUrl));
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(message.content);
@@ -26,7 +27,14 @@ export function MessageBubble({ message, isLastAssistant, isGenerating, onRegene
     return (
       <div className={styles.row}>
         <div className={styles.userBubble}>
-          <p className={styles.userText}>{message.content}</p>
+          {pictures.length > 0 && (
+            <div className={styles.userImages}>
+              {pictures.map((a) => (
+                <img key={a.id} className={styles.userImage} src={a.dataUrl ?? a.thumbUrl} alt={a.name} />
+              ))}
+            </div>
+          )}
+          {message.content && <p className={styles.userText}>{message.content}</p>}
         </div>
         <div className={styles.userAvatar}>
           <User size={14} />

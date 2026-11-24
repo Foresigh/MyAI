@@ -3,6 +3,7 @@ import { ArrowUp, Paperclip, Square } from "lucide-react";
 import { createId } from "../../lib/id";
 import { APP_NAME, MODEL_DISPLAY_NAME } from "../../lib/brand";
 import { isLikelyTextFile, readFileAsText } from "../../lib/fileToText";
+import { isImageFile, MAX_IMAGES_PER_MESSAGE, readImageAttachment } from "../../lib/imageAttach";
 import { estimateTokens } from "../../lib/tokenEstimate";
 import type { Attachment } from "../../types/chat";
 import { AttachmentChip } from "./AttachmentChip";
@@ -35,9 +36,28 @@ export function Composer({ onSend, onStop, isGenerating, disabled, disabledReaso
 
   const handleFiles = async (fileList: FileList | File[]) => {
     setFileError(null);
+    let imageCount = attachments.filter((a) => a.kind === "image").length;
     for (const file of Array.from(fileList)) {
+      if (isImageFile(file)) {
+        if (imageCount >= MAX_IMAGES_PER_MESSAGE) {
+          setFileError(`You can attach up to ${MAX_IMAGES_PER_MESSAGE} pictures per message.`);
+          continue;
+        }
+        imageCount += 1;
+        try {
+          const { dataUrl, thumbUrl } = await readImageAttachment(file);
+          setAttachments((prev) => [
+            ...prev,
+            { id: createId(), name: file.name, size: file.size, content: "", kind: "image", dataUrl, thumbUrl },
+          ]);
+        } catch (err) {
+          imageCount -= 1;
+          setFileError((err as Error).message);
+        }
+        continue;
+      }
       if (!isLikelyTextFile(file)) {
-        setFileError(`${file.name}: only text/code files are supported right now.`);
+        setFileError(`${file.name}: only pictures and text/code files are supported.`);
         continue;
       }
       try {
@@ -90,7 +110,7 @@ export function Composer({ onSend, onStop, isGenerating, disabled, disabledReaso
         onDrop={handleDrop}
       >
         {isDragging && (
-          <div className={styles.dropOverlay}>Drop files to attach</div>
+          <div className={styles.dropOverlay}>Drop pictures or files to attach</div>
         )}
 
         {attachments.length > 0 && (
@@ -119,6 +139,13 @@ export function Composer({ onSend, onStop, isGenerating, disabled, disabledReaso
             resizeTextarea();
           }}
           onKeyDown={handleKeyDown}
+          onPaste={(e) => {
+            const pasted = Array.from(e.clipboardData.files).filter(isImageFile);
+            if (pasted.length) {
+              e.preventDefault();
+              void handleFiles(pasted);
+            }
+          }}
         />
 
         <div className={styles.actionRow}>
@@ -127,7 +154,8 @@ export function Composer({ onSend, onStop, isGenerating, disabled, disabledReaso
               type="button"
               className={styles.attachButton}
               onClick={() => fileInputRef.current?.click()}
-              aria-label="Attach file"
+              aria-label="Attach picture or file"
+              title="Attach a picture or file"
             >
               <Paperclip size={16} />
             </button>

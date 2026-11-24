@@ -38,3 +38,11 @@
   background: var(--bg-hover);
   color: var(--danger);
 }
+
+.thumb {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+}

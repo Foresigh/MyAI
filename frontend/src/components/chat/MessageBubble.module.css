@@ -96,3 +96,22 @@
   background: var(--bg-hover);
   color: var(--text-primary);
 }
+
+.userImages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 2px 0 6px;
+}
+
+.userImages:last-child {
+  margin-bottom: 2px;
+}
+
+.userImage {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+  display: block;
+}

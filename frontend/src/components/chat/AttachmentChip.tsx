@@ -8,9 +8,10 @@ interface AttachmentChipProps {
 }
 
 export function AttachmentChip({ attachment, onRemove }: AttachmentChipProps) {
+  const preview = attachment.kind === "image" ? attachment.thumbUrl ?? attachment.dataUrl : undefined;
   return (
     <div className={styles.chip}>
-      <FileText size={13} />
+      {preview ? <img className={styles.thumb} src={preview} alt="" /> : <FileText size={13} />}
       <span className={styles.name}>{attachment.name}</span>
       <span className={styles.size}>{Math.max(1, Math.round(attachment.size / 1000))}KB</span>
       <button className={styles.remove} onClick={onRemove} aria-label={`Remove ${attachment.name}`} type="button">

@@ -5,7 +5,12 @@ import { streamChat, ChatApiError } from "../lib/api";
 import { createId } from "../lib/id";
 import type { Attachment, ChatMessage } from "../types/chat";
 
-function buildOutgoingContent(text: string, attachments: Attachment[]): string {
+function imageUrls(attachments: Attachment[] = []): string[] {
+  return attachments.filter((a) => a.kind === "image" && a.dataUrl).map((a) => a.dataUrl as string);
+}
+
+function buildOutgoingContent(text: string, allAttachments: Attachment[]): string {
+  const attachments = allAttachments.filter((a) => a.kind !== "image");
   if (attachments.length === 0) return text;
   const fileBlocks = attachments
     .map((a) => `File: ${a.name}\n\`\`\`\n${a.content}\n\`\`\``)
@@ -24,7 +29,7 @@ export function useChatStream() {
   const effectivePlan = useSettingsStore((s) => s.effectivePlan);
 
   const runAssistantTurn = useCallback(
-    async (targetId: string, historyMessages: ChatMessage[], userText: string) => {
+    async (targetId: string, historyMessages: ChatMessage[], userText: string, images: string[] = []) => {
       const assistantId = createId();
       addMessage(targetId, {
         id: assistantId,
@@ -45,6 +50,7 @@ export function useChatStream() {
           plan: effectivePlan(),
           signal: controller.signal,
           model: useSettingsStore.getState().selectedModel,
+          images,
           onToken: (chunk) => appendToMessage(targetId, assistantId, chunk),
         });
         updateMessage(targetId, assistantId, { pending: false });
@@ -82,7 +88,7 @@ export function useChatStream() {
         attachments,
       });
 
-      await runAssistantTurn(targetId, historyMessages, outgoing);
+      await runAssistantTurn(targetId, historyMessages, outgoing, imageUrls(attachments));
     },
     [addMessage, getConversation, runAssistantTurn]
   );
@@ -102,7 +108,7 @@ export function useChatStream() {
 
       removeMessage(targetId, lastAssistant.id);
       const historyForRequest = historyBefore.filter((m) => m.id !== lastUser.id);
-      await runAssistantTurn(targetId, historyForRequest, lastUser.content);
+      await runAssistantTurn(targetId, historyForRequest, lastUser.content, imageUrls(lastUser.attachments));
     },
     [getConversation, removeMessage, runAssistantTurn]
   );

@@ -5,6 +5,11 @@ export interface Attachment {
   name: string;
   size: number;
   content: string;
+  kind?: "text" | "image";
+  /** Full picture sent to the model. Not saved with chat history. */
+  dataUrl?: string;
+  /** Small preview that is saved with chat history. */
+  thumbUrl?: string;
 }
 
 export interface ChatMessage {

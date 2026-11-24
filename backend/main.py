@@ -156,6 +156,7 @@ class ChatStreamRequest(BaseModel):
     message: str
     history: list[Message] = []
     model: str | None = None
+    images: list[str] = []
 
 
 PlanLiteral = Literal[
@@ -464,10 +465,32 @@ def _trim_history(history: list[Message]) -> list[Message]:
     return kept
 
 
-def _build_messages(message: str, history: list[Message]) -> list[dict]:
+MAX_CHAT_IMAGES = 3
+MAX_CHAT_IMAGE_CHARS = 6_000_000  # base64 length, about 4.5 MB per picture
+_IMAGE_DATA_URL_RE = re.compile(r"^data:image/(png|jpeg|jpg|webp|gif);base64,[A-Za-z0-9+/=]+$")
+
+
+def _validate_images(images: list[str]) -> str | None:
+    """Return a user-facing error if the attached pictures are unusable."""
+    if len(images) > MAX_CHAT_IMAGES:
+        return f"You can attach up to {MAX_CHAT_IMAGES} pictures per message."
+    for image in images:
+        if len(image) > MAX_CHAT_IMAGE_CHARS:
+            return "One of the pictures is too large. Try a smaller picture."
+        if not _IMAGE_DATA_URL_RE.match(image):
+            return "One of the pictures isn't a supported format (PNG, JPEG, WebP or GIF)."
+    return None
+
+
+def _build_messages(message: str, history: list[Message], images: list[str] | None = None) -> list[dict]:
     messages = [{"role": "system", "content": ARVO_SYSTEM_PROMPT}]
     messages.extend({"role": m.role, "content": m.content} for m in _trim_history(history))
-    messages.append({"role": "user", "content": message})
+    if images:
+        parts: list[dict] = [{"type": "text", "text": message or "Describe this picture."}]
+        parts.extend({"type": "image_url", "image_url": {"url": url}} for url in images)
+        messages.append({"role": "user", "content": parts})
+    else:
+        messages.append({"role": "user", "content": message})
     return messages
 
 
@@ -604,6 +627,7 @@ def stream_groq_chat(
     message: str,
     history: list[Message],
     model_id: str | None = None,
+    images: list[str] | None = None,
 ) -> Iterator[str]:
 
     if not _groq_ready():
@@ -612,10 +636,21 @@ def stream_groq_chat(
         ) + "\n\n"
         return
 
+    if images:
+        image_error = _validate_images(images)
+        if not image_error and not arvo_models.supports_vision(model_id or arvo_models.DEFAULT_ID):
+            # Only some models can read pictures; switch to one for this message.
+            model_id = arvo_models.vision_model_id()
+            if model_id is None:
+                image_error = "Reading pictures isn't available right now. Please try again later."
+        if image_error:
+            yield "data: " + json.dumps({"error": image_error}) + "\n\n"
+            return
+
     try:
 
         response, limit_error = _post_groq(
-            _groq_payload(model_id, _build_messages(message, history), stream=True),
+            _groq_payload(model_id, _build_messages(message, history, images), stream=True),
             stream=True,
             timeout=120,
         )
@@ -676,6 +711,7 @@ def chat_stream(
             request.message,
             request.history,
             request.model,
+            request.images,
         ),
 
         media_type="text/event-stream",
