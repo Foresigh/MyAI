@@ -1,10 +1,11 @@
 import * as Clipboard from "expo-clipboard";
 import { useState } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { ChatMessage } from "../lib/store";
 import { colors, radius } from "../lib/theme";
 import { Markdown } from "./Markdown";
+import { TypingDots } from "./TypingDots";
 
 interface Props {
   message: ChatMessage;
@@ -53,7 +54,7 @@ export function MessageBubble({ message, isLast, onRetry }: Props) {
   return (
     <View style={styles.assistant}>
       {message.pending && !message.content ? (
-        <ActivityIndicator color={colors.accent} style={{ alignSelf: "flex-start", marginVertical: 6 }} />
+        <TypingDots />
       ) : (
         <Markdown content={message.content} />
       )}

@@ -3,6 +3,11 @@ const JS_LANGUAGES = new Set(["js", "jsx", "javascript", "ts", "tsx", "typescrip
 const IMPORT_RE = /(?:import\s[^'"]*?from\s*|import\s*|require\(\s*)['"]([^'"]+)['"]/g;
 const BUILT_IN = new Set(["react", "react-native"]);
 
+export function isHtmlPreviewable(language: string, code: string): boolean {
+  const lang = language.toLowerCase();
+  return (lang === "html" || lang === "htm") && /<(html|body|div|main|section|h1|canvas|script)\b/i.test(code);
+}
+
 export function isExpoApp(language: string, code: string): boolean {
   if (!JS_LANGUAGES.has(language.toLowerCase())) return false;
   return /from\s*['"](react-native|expo[^'"]*)['"]/.test(code) && /export\s+default\b/.test(code);
@@ -15,7 +20,8 @@ function packageName(spec: string): string | null {
   return BUILT_IN.has(name) ? null : name;
 }
 
-export function expoSnackUrl(language: string, code: string): string {
+/** `embedded` gives Snack's minimal player, used for the in-app preview. */
+export function expoSnackUrl(language: string, code: string, embedded = false): string {
   const isTs = ["ts", "tsx", "typescript"].includes(language.toLowerCase());
   const files = { [isTs ? "App.tsx" : "App.js"]: { type: "CODE", contents: code } };
   const deps = new Set<string>();
@@ -25,9 +31,10 @@ export function expoSnackUrl(language: string, code: string): string {
   }
   const params: [string, string][] = [
     ["name", "Made with Arvo"],
-    ["platform", "mydevice"],
+    ["platform", embedded ? "web" : "mydevice"],
     ["files", JSON.stringify(files)],
   ];
   if (deps.size) params.push(["dependencies", [...deps].join(",")]);
-  return `https://snack.expo.dev/?${params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")}`;
+  if (embedded) params.push(["preview", "true"], ["theme", "dark"], ["supportedPlatforms", "web"]);
+  return `https://snack.expo.dev/${embedded ? "embedded" : ""}?${params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")}`;
 }

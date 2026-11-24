@@ -3,7 +3,8 @@ import * as Linking from "expo-linking";
 import { useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { expoSnackUrl, isExpoApp } from "../lib/snack";
+import { expoSnackUrl, isExpoApp, isHtmlPreviewable } from "../lib/snack";
+import { PreviewCard } from "./PreviewCard";
 import { colors, mono, radius } from "../lib/theme";
 
 type Block = { type: "code"; language: string; code: string } | { type: "text"; text: string };
@@ -110,12 +111,21 @@ function CodeBlock({ language, code }: { language: string; code: string }) {
   );
 }
 
+/** Websites and Expo apps show as a preview card; other code as a plain block. */
+function CodeOrPreview({ language, code }: { language: string; code: string }) {
+  const kind = isHtmlPreviewable(language, code) ? "website" : isExpoApp(language, code) ? "app" : null;
+  if (!kind) return <CodeBlock language={language} code={code} />;
+  return (
+    <PreviewCard kind={kind} language={language} code={code} renderCode={() => <CodeBlock language={language} code={code} />} />
+  );
+}
+
 export function Markdown({ content }: { content: string }) {
   return (
     <View>
       {splitBlocks(content).map((block, i) =>
         block.type === "code" ? (
-          <CodeBlock key={i} language={block.language} code={block.code} />
+          <CodeOrPreview key={i} language={block.language} code={block.code} />
         ) : (
           <TextBlock key={i} text={block.text} />
         )
