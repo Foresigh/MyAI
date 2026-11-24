@@ -1,34 +1,46 @@
 .dots {
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: var(--space-2) 0;
+  align-items: flex-end;
+  gap: 6px;
+  height: 22px;
+  padding: var(--space-2) 2px;
 }
 
+/* Three dots that rise, grow and brighten one after another, like a wave. */
 .dots span {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
-  background: var(--text-tertiary);
-  animation: bounce 1.1s infinite ease-in-out;
+  background: var(--accent);
+  opacity: 0.45;
+  transform: translateY(0) scale(0.8);
+  animation: wave 1.2s infinite cubic-bezier(0.45, 0, 0.55, 1);
 }
 
 .dots span:nth-child(2) {
-  animation-delay: 0.15s;
-}
-.dots span:nth-child(3) {
-  animation-delay: 0.3s;
+  animation-delay: 0.16s;
 }
 
-@keyframes bounce {
+.dots span:nth-child(3) {
+  animation-delay: 0.32s;
+}
+
+@keyframes wave {
   0%,
-  60%,
+  70%,
   100% {
-    transform: translateY(0);
-    opacity: 0.5;
+    transform: translateY(0) scale(0.8);
+    opacity: 0.45;
   }
-  30% {
-    transform: translateY(-4px);
+  35% {
+    transform: translateY(-7px) scale(1.1);
     opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dots span {
+    animation: none;
+    opacity: 0.8;
   }
 }

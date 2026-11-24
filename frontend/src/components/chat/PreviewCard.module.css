@@ -211,33 +211,64 @@
   white-space: nowrap;
 }
 
-.tabs {
-  display: flex;
-  gap: 2px;
+/* Preview / Code switch: a pill with a raised thumb that slides to the chosen side. */
+.toggle {
+  position: relative;
+  display: inline-flex;
   padding: 3px;
   background: var(--bg-inset);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
 }
 
-.tab,
-.tabActive {
+.toggleThumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 40px;
+  height: 32px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-default);
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+  transition: transform var(--transition-base);
+}
+
+.toggleButton {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  width: 40px;
+  height: 32px;
+  padding: 0;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 12.5px;
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  border-radius: 9px;
   cursor: pointer;
+  transition: color var(--transition-fast);
 }
 
-.tabActive {
-  background: var(--bg-surface);
+.toggleButton:hover {
+  color: var(--text-secondary);
+}
+
+.toggleButtonActive,
+.toggleButtonActive:hover {
   color: var(--text-primary);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.toggleButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggleThumb {
+    transition: none;
+  }
 }
 
 .panelActions {
