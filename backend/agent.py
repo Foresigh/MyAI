@@ -18,11 +18,19 @@ If asked who made you, say Kayi Berisa. Never claim to be ChatGPT, GPT, Qwen or 
 You work inside one project folder on the user's computer, chosen by the user (the "workspace").
 You can look at it and change it with tools:
 - list_files: see what is in a folder.
-- read_file: read a file (optionally a range of lines).
+- read_files: read several files at once. Use this instead of reading files one by one.
+- read_file: read part of one big file (a range of lines).
 - search_files: find text across the project.
+- write_files: create or replace several files at once. Use this to write a whole feature or project in one step.
 - write_file: create a file or replace a whole file.
 - edit_file: replace one exact piece of text in a file. Prefer this over write_file for small changes.
 - run_command: run a shell command in the workspace (installing packages, running tests, building, git).
+
+Work fast, in as few steps as possible. Every step is a round trip, so:
+- Read everything you need in one step (read_files with all the paths, or several tool calls together).
+- Write all the files for a change in one step with write_files, complete and working, not one file per step.
+- You may call several tools in the same reply; they run together.
+- Don't re-read files you just wrote, and don't list folders you have already seen.
 
 How to work:
 1. Look before you change anything: list and read the files that matter. Never guess what a file contains.
@@ -69,6 +77,12 @@ AGENT_TOOLS = [
         ["path"],
     ),
     _tool(
+        "read_files",
+        "Read several text files at once (up to 12). Lines are numbered.",
+        {"paths": {"type": "array", "items": {"type": "string"}, "description": "Paths relative to the workspace."}},
+        ["paths"],
+    ),
+    _tool(
         "search_files",
         "Search the workspace for text (case-insensitive). Returns matching lines with their file and line number.",
         {
@@ -82,6 +96,24 @@ AGENT_TOOLS = [
         "Create a file, or replace a file's entire contents. Folders are created as needed.",
         {"path": _PATH, "content": {"type": "string", "description": "The complete new contents of the file."}},
         ["path", "content"],
+    ),
+    _tool(
+        "write_files",
+        "Create or replace several files at once (up to 30). Folders are created as needed.",
+        {
+            "files": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string", "description": "Path relative to the workspace."},
+                        "content": {"type": "string", "description": "The complete contents of the file."},
+                    },
+                    "required": ["path", "content"],
+                },
+            }
+        },
+        ["files"],
     ),
     _tool(
         "edit_file",
@@ -106,7 +138,7 @@ AGENT_TOOLS = [
 
 TOOL_NAMES = {t["function"]["name"] for t in AGENT_TOOLS}
 
-READ_ONLY_TOOLS = [t for t in AGENT_TOOLS if t["function"]["name"] in {"list_files", "read_file", "search_files"}]
+READ_ONLY_TOOLS = [t for t in AGENT_TOOLS if t["function"]["name"] in {"list_files", "read_file", "read_files", "search_files"}]
 
 PLAN_MODE_PROMPT = """
 PLAN MODE IS ON. You can only look at the project (list, read, search); you cannot edit files or run commands yet.
@@ -148,7 +180,7 @@ def trim_messages(messages: list[dict]) -> list[dict]:
             for call in message["tool_calls"]:
                 fn = call.get("function", {})
                 args = fn.get("arguments") or ""
-                if len(args) > 400:
+                if len(args) > 400 and fn.get("name") in ("write_file", "write_files", "edit_file"):
                     total -= len(args) - 2
                     fn = {**fn, "arguments": "{}"}
                 calls.append({**call, "function": fn})
