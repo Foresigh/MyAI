@@ -743,6 +743,7 @@ class AgentStepRequest(BaseModel):
     workspace: str | None = None  # folder name only, shown to the model
     platform: str | None = None   # "win32", "darwin" or "linux"
     mode: Literal["act", "plan"] = "act"
+    features: list[str] = []  # what this copy of the app supports, e.g. "batch"
 
 
 @app.post("/agent/step")
@@ -784,7 +785,12 @@ def agent_step(request: AgentStepRequest, http_request: Request):
     system = {"role": "system", "content": f"{agent.AGENT_SYSTEM_PROMPT}\n\n{context}"}
 
     payload = _groq_payload(request.model, [system, *agent.trim_messages(messages)], stream=False)
-    payload["tools"] = agent.READ_ONLY_TOOLS if request.mode == "plan" else agent.AGENT_TOOLS
+    payload["tools"] = agent.tools_for(request.mode, "batch" in request.features)
+    if "batch" not in request.features:
+        system["content"] = "\n".join(
+            line for line in system["content"].replace(agent.BATCH_PROMPT, "").split("\n")
+            if not line.startswith(("- read_files:", "- write_files:"))
+        )
     payload["tool_choice"] = "auto"
 
     try:

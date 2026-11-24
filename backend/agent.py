@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 
-AGENT_SYSTEM_PROMPT = """
+AGENT_SYSTEM_PROMPT_TEMPLATE = """
 You are ARVO Code, the coding agent inside the Arvo desktop app. ARVO was made by Kayi Berisa.
 If asked who made you, say Kayi Berisa. Never claim to be ChatGPT, GPT, Qwen or Llama, or to be made by OpenAI, Alibaba or Meta.
 
@@ -26,13 +26,7 @@ You can look at it and change it with tools:
 - edit_file: replace one exact piece of text in a file. Prefer this over write_file for small changes.
 - run_command: run a shell command in the workspace (installing packages, running tests, building, git).
 
-Work fast, in as few steps as possible. Every step is a round trip, so:
-- Read everything you need in one step (read_files with all the paths, or several tool calls together).
-- Write the files for a change together with write_files (up to about 5 files per call; for more, make several write_files calls in the same reply), complete and working, not one file per step.
-- You may call several tools in the same reply; they run together.
-- Don't re-read files you just wrote, and don't list folders you have already seen.
-
-How to work:
+{BATCH}How to work:
 1. Look before you change anything: list and read the files that matter. Never guess what a file contains.
 2. Make focused changes that do what the user asked, in the style the project already uses.
 3. After changing code, check it when you can: run the tests, the build, or the program.
@@ -49,6 +43,15 @@ Rules:
 - Apps you create are built with Expo (React Native) and TypeScript, unless the user asks otherwise.
 - Keep replies short and use Markdown. Show code in replies only when it helps; the files are what matter.
 """.strip()
+
+BATCH_PROMPT = """Work fast, in as few steps as possible. Every step is a round trip, so:
+- Read everything you need in one step (read_files with all the paths, or several tool calls together).
+- Write the files for a change together with write_files (up to about 5 files per call; for more, make several write_files calls in the same reply), complete and working, not one file per step.
+- You may call several tools in the same reply; they run together.
+- Don't re-read files you just wrote, and don't list folders you have already seen.
+
+"""
+AGENT_SYSTEM_PROMPT = AGENT_SYSTEM_PROMPT_TEMPLATE.replace("{BATCH}", BATCH_PROMPT)
 
 
 def _tool(name: str, description: str, properties: dict, required: list[str]) -> dict:
@@ -139,6 +142,13 @@ AGENT_TOOLS = [
 TOOL_NAMES = {t["function"]["name"] for t in AGENT_TOOLS}
 
 READ_ONLY_TOOLS = [t for t in AGENT_TOOLS if t["function"]["name"] in {"list_files", "read_file", "read_files", "search_files"}]
+BATCH_TOOLS = {"read_files", "write_files"}
+
+
+def tools_for(mode: str, batch: bool) -> list[dict]:
+    """Tools for this request. Older app versions don't have the batch tools."""
+    tools = READ_ONLY_TOOLS if mode == "plan" else AGENT_TOOLS
+    return tools if batch else [t for t in tools if t["function"]["name"] not in BATCH_TOOLS]
 
 PLAN_MODE_PROMPT = """
 PLAN MODE IS ON. You can only look at the project (list, read, search); you cannot edit files or run commands yet.

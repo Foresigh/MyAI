@@ -34,7 +34,7 @@ async function askServer({ apiUrl, email, model, mode, workspace, messages, sign
     response = await fetch(`${apiUrl}/agent/step`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(email ? { "X-User-Email": email } : {}) },
-      body: JSON.stringify({ messages, model, mode, workspace: path.basename(workspace), platform: process.platform }),
+      body: JSON.stringify({ messages, model, mode, features: ["batch"], workspace: path.basename(workspace), platform: process.platform }),
       signal: AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
     });
   } catch (err) {
