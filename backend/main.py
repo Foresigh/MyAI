@@ -15,6 +15,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
+import agent
 import arvo_models
 import storage
 
@@ -723,6 +724,92 @@ def chat_stream(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+# ============================================================
+# ARVO CODE (desktop coding agent)
+# ============================================================
+
+class AgentMessage(BaseModel):
+    role: Literal["user", "assistant", "tool"]
+    content: str | None = None
+    tool_calls: list[dict] | None = None
+    tool_call_id: str | None = None
+
+
+class AgentStepRequest(BaseModel):
+    messages: list[AgentMessage]
+    model: str | None = None
+    workspace: str | None = None  # folder name only, shown to the model
+    platform: str | None = None   # "win32", "darwin" or "linux"
+
+
+@app.post("/agent/step")
+def agent_step(request: AgentStepRequest, http_request: Request):
+    """Return the coding agent's next message. The desktop app runs the tools."""
+
+    plan_id, usage_key = get_plan_for_request(http_request)
+    access_error = model_access_error(plan_id, request.model)
+    if access_error:
+        raise HTTPException(status_code=403, detail=access_error)
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="No messages.")
+
+    messages = [m.model_dump(exclude_none=True) for m in request.messages]
+    for m in messages:
+        if m["role"] == "assistant" and m.get("tool_calls"):
+            m["tool_calls"] = agent.clean_tool_calls(m["tool_calls"])
+            m.setdefault("content", "")
+
+    if agent.steps_since_user(messages) >= agent.MAX_STEPS_PER_TURN:
+        raise HTTPException(
+            status_code=429,
+            detail="Arvo has taken a lot of steps on this request. Send a new message to keep going.",
+        )
+    # A new request from the user counts as one message; the tool steps that
+    # follow it are free.
+    if messages[-1]["role"] == "user":
+        check_and_increment_usage(plan_id, usage_key)
+
+    if not _groq_ready():
+        raise HTTPException(status_code=500, detail="GROQ_API_KEY must be set.")
+
+    shell = {"win32": "Windows (commands run in PowerShell)", "darwin": "macOS (zsh)", "linux": "Linux (bash)"}
+    context = f"The workspace folder is named \"{(request.workspace or 'project')[:80]}\"."
+    if request.platform in shell:
+        context += f" The computer runs {shell[request.platform]}."
+    system = {"role": "system", "content": f"{agent.AGENT_SYSTEM_PROMPT}\n\n{context}"}
+
+    payload = _groq_payload(request.model, [system, *agent.trim_messages(messages)], stream=False)
+    payload["tools"] = agent.AGENT_TOOLS
+    payload["tool_choice"] = "auto"
+
+    try:
+        for attempt in (1, 2):
+            response, limit_error = _post_groq(payload, stream=False, timeout=120)
+            if limit_error:
+                raise HTTPException(status_code=429, detail=limit_error)
+            # Groq returns 400 tool_use_failed when the model writes a broken
+            # tool call; asking again usually works.
+            if response.status_code == 400 and "tool_use_failed" in response.text and attempt == 1:
+                groq_logger.warning("Groq tool_use_failed for %s, retrying", payload["model"])
+                continue
+            break
+        if response.status_code >= 400:
+            groq_logger.warning("Groq agent error %s: %s", response.status_code, _ORG_ID_RE.sub("org_***", _groq_error_text(response)))
+            raise HTTPException(status_code=502, detail="Arvo couldn't finish that step. Please try again.")
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail="Could not reach the model. Please try again.") from exc
+
+    reply = response.json()["choices"][0]["message"]
+    tool_calls = [c for c in agent.clean_tool_calls(reply.get("tool_calls")) if c["function"]["name"] in agent.TOOL_NAMES]
+    return {
+        "message": {
+            "role": "assistant",
+            "content": strip_thinking(reply.get("content") or ""),
+            **({"tool_calls": tool_calls} if tool_calls else {}),
+        }
+    }
 
 
 # ============================================================
