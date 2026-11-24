@@ -1,0 +1,290 @@
+.wrap {
+  margin: var(--space-3) 0;
+  max-width: 560px;
+  /* The card is rendered inside the markdown <pre>, so undo its code styling. */
+  font-family: var(--font-sans);
+  white-space: normal;
+}
+
+.overlay {
+  font-family: var(--font-sans);
+}
+
+.card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+/* Preview area */
+.thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: none;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-inset);
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* Render the page at 3x size and shrink it, so the thumbnail shows a desktop-width layout. */
+.thumbFrame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 300%;
+  height: 300%;
+  border: none;
+  background: #ffffff;
+  transform: scale(0.3333);
+  transform-origin: 0 0;
+  pointer-events: none;
+}
+
+.thumbIcon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-tertiary);
+}
+
+.thumb:hover .thumbIcon {
+  color: var(--text-secondary);
+}
+
+/* Name and buttons */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+}
+
+.meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.subtitle {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.openButton {
+  border: none;
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.openButton:hover {
+  background: var(--bg-active);
+}
+
+.menuWrap {
+  position: relative;
+}
+
+.moreButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.moreButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  z-index: 20;
+  min-width: 190px;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.menu button,
+.menu a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.menu button:hover,
+.menu a:hover {
+  background: var(--bg-hover);
+}
+
+.code {
+  margin-top: var(--space-2);
+}
+
+/* Full preview panel */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  width: min(960px, 100%);
+  height: 100%;
+  background: var(--bg-base);
+  border-left: 1px solid var(--border-subtle);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, 0.25);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border-subtle);
+  min-height: 52px;
+}
+
+.panelTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.panelTitle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-inset);
+  border-radius: var(--radius-md);
+}
+
+.tab,
+.tabActive {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12.5px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.tabActive {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.panelActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.iconButton:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.panelBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.panelFrame,
+.panelFrameApp {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #ffffff;
+}
+
+.panelFrameApp {
+  background: #0d0f12;
+}
+
+.panelCode {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-3);
+}
