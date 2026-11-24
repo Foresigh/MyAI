@@ -1,4 +1,6 @@
 import json
+import logging
+import math
 import os
 import re
 import secrets
@@ -114,7 +116,11 @@ IDENTITY RULES:
 
 Your name is ARVO.
 
-Do not introduce yourself as Qwen.
+ARVO was made by Kayi Berisa. If anyone asks who made, created, built or
+developed you, answer that you were made by Kayi Berisa.
+
+Do not introduce yourself as Qwen, ChatGPT or GPT, and do not say that you
+were made by OpenAI, Alibaba or any company other than Kayi Berisa.
 
 Do not claim that ARVO was trained from scratch by the user.
 
@@ -430,11 +436,118 @@ def _groq_headers() -> dict:
     }
 
 
+groq_logger = logging.getLogger("arvo.groq")
+
+# Roughly 4 characters per token, so the default keeps about 3K tokens of
+# history. Groq's free tier limits tokens per minute per model, and the
+# full conversation is re-sent on every turn, so long chats need trimming.
+HISTORY_CHAR_BUDGET = int(os.environ.get("ARVO_HISTORY_CHAR_BUDGET", "12000"))
+MAX_AUTO_RETRY_WAIT = 5.0
+
+_RETRY_IN_RE = re.compile(r"try again in\s+((?:\d+h)?(?:\d+m(?!s))?(?:[\d.]+(?:ms|s))?)", re.I)
+_DURATION_PART_RE = re.compile(r"([\d.]+)(h|ms|m|s)")
+_DURATION_UNITS = {"h": 3600.0, "m": 60.0, "s": 1.0, "ms": 0.001}
+_ORG_ID_RE = re.compile(r"org_[A-Za-z0-9]+")
+
+
+def _trim_history(history: list[Message]) -> list[Message]:
+    kept: list[Message] = []
+    used = 0
+    for m in reversed(history):
+        used += len(m.content)
+        if used > HISTORY_CHAR_BUDGET:
+            break
+        kept.append(m)
+    kept.reverse()
+    while kept and kept[0].role == "assistant":
+        kept.pop(0)
+    return kept
+
+
 def _build_messages(message: str, history: list[Message]) -> list[dict]:
     messages = [{"role": "system", "content": ARVO_SYSTEM_PROMPT}]
-    messages.extend({"role": m.role, "content": m.content} for m in history)
+    messages.extend({"role": m.role, "content": m.content} for m in _trim_history(history))
     messages.append({"role": "user", "content": message})
     return messages
+
+
+def _groq_payload(model_id: str | None, messages: list[dict], stream: bool) -> dict:
+    model = arvo_models.lookup(model_id)
+    return {"model": model["groq"], **model["extra"], "messages": messages, "stream": stream}
+
+
+def _groq_error_text(response: requests.Response) -> str:
+    try:
+        return str((response.json().get("error") or {}).get("message", ""))
+    except ValueError:
+        return response.text[:500]
+
+
+def _groq_wait_seconds(response: requests.Response, error_text: str) -> float | None:
+    match = _RETRY_IN_RE.search(error_text)
+    if match and match.group(1):
+        parts = _DURATION_PART_RE.findall(match.group(1))
+        if parts:
+            return sum(float(n) * _DURATION_UNITS[u] for n, u in parts)
+    try:
+        return float(response.headers.get("retry-after", ""))
+    except ValueError:
+        return None
+
+
+def _limit_message(status: int, error_text: str, wait: float | None) -> str:
+    lower = error_text.lower()
+    if status == 413 or "request too large" in lower:
+        return "This conversation is too long for the selected model. Start a new chat or switch models."
+    if "per day" in lower:
+        return "The selected model has reached its daily limit. Switch to another model or try again later."
+    if wait:
+        return f"Arvo is busy right now. Please try again in {max(1, math.ceil(wait))} seconds."
+    return "Arvo is busy right now. Please try again in a moment."
+
+
+def _post_groq(payload: dict, *, stream: bool, timeout: int) -> tuple[requests.Response | None, str | None]:
+    """POST to Groq, retrying once on a short rate-limit wait.
+
+    Returns (response, None) on anything other than a rate limit, or
+    (None, user_facing_message) when Groq rejected the request.
+    """
+    for attempt in (1, 2):
+        response = requests.post(
+            GROQ_URL,
+            headers=_groq_headers(),
+            json=payload,
+            stream=stream,
+            timeout=timeout,
+        )
+        if response.status_code not in (413, 429):
+            return response, None
+
+        error_text = _groq_error_text(response)
+        wait = _groq_wait_seconds(response, error_text)
+        response.close()
+        groq_logger.warning(
+            "Groq %s for model %s (attempt %d, %d messages): %s",
+            response.status_code,
+            payload.get("model"),
+            attempt,
+            len(payload.get("messages", [])),
+            _ORG_ID_RE.sub("org_***", error_text),
+        )
+
+        retryable = (
+            response.status_code == 429
+            and attempt == 1
+            and wait is not None
+            and wait <= MAX_AUTO_RETRY_WAIT
+            and "per day" not in error_text.lower()
+        )
+        if retryable:
+            time.sleep(wait + 0.25)
+            continue
+        return None, _limit_message(response.status_code, error_text, wait)
+
+    return None, _limit_message(429, "", None)
 
 
 @app.get("/models")
@@ -459,17 +572,13 @@ def chat(
         )
 
     try:
-        response = requests.post(
-            GROQ_URL,
-            headers=_groq_headers(),
-            json={
-                "model": arvo_models.lookup(request.model)["groq"],
-                **arvo_models.lookup(request.model)["extra"],
-                "messages": _build_messages(request.message, []),
-                "stream": False,
-            },
+        response, limit_error = _post_groq(
+            _groq_payload(request.model, _build_messages(request.message, []), stream=False),
+            stream=False,
             timeout=60,
         )
+        if limit_error:
+            raise HTTPException(status_code=429, detail=limit_error)
         response.raise_for_status()
 
     except requests.RequestException as exc:
@@ -505,24 +614,17 @@ def stream_groq_chat(
 
     try:
 
-        with requests.post(
-            GROQ_URL,
-            headers=_groq_headers(),
-            json={
-                "model": arvo_models.lookup(model_id)["groq"],
-                **arvo_models.lookup(model_id)["extra"],
-                "messages": _build_messages(message, history),
-                "stream": True,
-            },
+        response, limit_error = _post_groq(
+            _groq_payload(model_id, _build_messages(message, history), stream=True),
             stream=True,
             timeout=120,
-        ) as response:
+        )
 
-            if response.status_code == 429:
-                yield "data: " + json.dumps(
-                    {"error": "Rate limit reached. Please try again in a moment."}
-                ) + "\n\n"
-                return
+        if limit_error:
+            yield "data: " + json.dumps({"error": limit_error}) + "\n\n"
+            return
+
+        with response:
 
             response.raise_for_status()
             response.encoding = "utf-8"
