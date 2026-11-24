@@ -30,7 +30,7 @@ export interface ArvoModel {
 }
 
 export type Preview =
-  | { kind: "command"; command: string; cwd: string }
+  | { kind: "command"; command: string; cwd: string; background?: boolean }
   | { kind: "edit"; path: string; oldText: string; newText: string }
   | { kind: "write"; path: string; exists: boolean; content: string }
   | { kind: "write_many"; files: { path: string; exists: boolean; content: string }[] };

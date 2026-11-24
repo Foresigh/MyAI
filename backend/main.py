@@ -782,15 +782,12 @@ def agent_step(request: AgentStepRequest, http_request: Request):
         context += f" The computer runs {shell[request.platform]}."
     if request.mode == "plan":
         context += "\n\n" + agent.PLAN_MODE_PROMPT
-    system = {"role": "system", "content": f"{agent.AGENT_SYSTEM_PROMPT}\n\n{context}"}
+    batch = "batch" in request.features
+    background = "background" in request.features
+    system = {"role": "system", "content": f"{agent.system_prompt(batch, background)}\n\n{context}"}
 
     payload = _groq_payload(request.model, [system, *agent.trim_messages(messages)], stream=False)
-    payload["tools"] = agent.tools_for(request.mode, "batch" in request.features)
-    if "batch" not in request.features:
-        system["content"] = "\n".join(
-            line for line in system["content"].replace(agent.BATCH_PROMPT, "").split("\n")
-            if not line.startswith(("- read_files:", "- write_files:"))
-        )
+    payload["tools"] = agent.tools_for(request.mode, batch, background)
     payload["tool_choice"] = "auto"
 
     try:

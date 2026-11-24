@@ -3,6 +3,7 @@
 // tools can use this computer's files and shell.
 
 const { app, BrowserWindow, clipboard, dialog, ipcMain, shell } = require("electron");
+const { stopBackground } = require("./tools.cjs");
 const fs = require("node:fs");
 const path = require("node:path");
 const { runTurn } = require("./agent.cjs");
@@ -299,5 +300,6 @@ app.whenReady().then(() => {
 
 app.on("window-all-closed", () => {
   stopRunning();
+  stopBackground();
   if (process.platform !== "darwin") app.quit();
 });

@@ -199,7 +199,17 @@ function killTree(child) {
   }
 }
 
-function runCommand(workspace, { command, cwd = "." }, { signal, onOutput } = {}) {
+// Programs started with background: true (dev servers, apps). They keep
+// running after the step ends and are stopped when Arvo quits.
+const background = new Set();
+const BACKGROUND_WAIT_MS = 8000;
+
+function stopBackground() {
+  for (const child of background) killTree(child);
+  background.clear();
+}
+
+function runCommand(workspace, { command, cwd = ".", background: inBackground = false }, { signal, onOutput } = {}) {
   if (!command || typeof command !== "string") throw new ToolError("Give a command to run.");
   const dir = resolveInside(workspace, cwd);
   const win = process.platform === "win32";
@@ -227,13 +237,32 @@ if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }; exit
     child.stdout.on("data", add);
     child.stderr.on("data", add);
     const limit = SLOW_COMMAND.test(command) ? SLOW_COMMAND_TIMEOUT_MS : COMMAND_TIMEOUT_MS;
-    const timer = setTimeout(() => {
-      timedOut = true;
-      killTree(child);
-    }, limit);
+    let done = false;
+    let timer;
+    if (inBackground) {
+      // Give it a few seconds to start (or fail), then hand back what it printed.
+      background.add(child);
+      child.on("close", () => background.delete(child));
+      timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        signal?.removeEventListener("abort", abort);
+        let text = output.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").trim();
+        text = clip(text || "(no output yet)");
+        text += `\n[Still running in the background (process ${child.pid}). It keeps running until Arvo quits.]`;
+        resolve({ output: text, ok: true });
+      }, BACKGROUND_WAIT_MS);
+    } else {
+      timer = setTimeout(() => {
+        timedOut = true;
+        killTree(child);
+      }, limit);
+    }
     const abort = () => killTree(child);
     signal?.addEventListener("abort", abort, { once: true });
     const finish = (code, error) => {
+      if (done) return;
+      done = true;
       clearTimeout(timer);
       signal?.removeEventListener("abort", abort);
       // Strip terminal colour codes the model can't use.
@@ -255,7 +284,7 @@ const NEEDS_APPROVAL = { write_file: "edit", write_files: "edit", edit_file: "ed
 
 /** What to show the user before they approve a tool call. */
 async function previewFor(workspace, name, args) {
-  if (name === "run_command") return { kind: "command", command: String(args.command || ""), cwd: args.cwd || "." };
+  if (name === "run_command") return { kind: "command", command: String(args.command || ""), cwd: args.cwd || ".", background: !!args.background };
   let exists = false;
   try {
     exists = fs.existsSync(resolveInside(workspace, args.path));
@@ -306,4 +335,4 @@ async function runTool(workspace, name, args, options = {}) {
   }
 }
 
-module.exports = { runTool, previewFor, NEEDS_APPROVAL, resolveInside, isSecretFile };
+module.exports = { runTool, previewFor, NEEDS_APPROVAL, resolveInside, isSecretFile, stopBackground };

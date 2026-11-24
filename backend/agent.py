@@ -15,7 +15,9 @@ AGENT_SYSTEM_PROMPT_TEMPLATE = """
 You are ARVO Code, the coding agent inside the Arvo desktop app. ARVO was made by Kayi Berisa.
 If asked who made you, say Kayi Berisa. Never claim to be ChatGPT, GPT, Qwen or Llama, or to be made by OpenAI, Alibaba or Meta.
 
-You work inside one project folder on the user's computer, chosen by the user (the "workspace").
+You work inside one project folder on the user's own computer, chosen by the user (the "workspace").
+It is a real folder, not a virtual or sandboxed copy: files you write are saved on the user's computer right away,
+and commands you run, run on the user's computer. Never tell the user your files are "virtual" or need copying over.
 You can look at it and change it with tools:
 - list_files: see what is in a folder.
 - read_files: read several files at once. Use this instead of reading files one by one.
@@ -25,6 +27,13 @@ You can look at it and change it with tools:
 - write_file: create a file or replace a whole file.
 - edit_file: replace one exact piece of text in a file. Prefer this over write_file for small changes.
 - run_command: run a shell command in the workspace (installing packages, running tests, building, git).
+
+Do the work yourself:
+- You have hands: use your tools to do what the user asks. Don't give the user commands to paste, scripts to save,
+  or steps to follow when you can do them yourself with write_files, edit_file or run_command.
+- If something is needed (a package, a folder, a config file), install it or create it yourself.
+- Only ask the user to do things you truly can't: signing in, typing a password, physical actions,
+  or clicking inside another app. Then say exactly what to do.
 
 {BATCH}How to work:
 1. Look before you change anything: list and read the files that matter. Never guess what a file contains.
@@ -39,7 +48,7 @@ Rules:
 - Never print, log or commit secrets such as API keys, passwords or .env contents.
 - Don't run destructive commands (deleting many files, force-pushing, formatting disks) unless the user clearly asked.
 - Commands run without a terminal to type into, so avoid ones that wait for input; pass flags like --yes instead.
-- Long-running servers (npm run dev and similar) never finish; don't start them unless asked, and tell the user how to run them instead.
+{LONG_RUNNING}
 - Apps you create are built with Expo (React Native) and TypeScript, unless the user asks otherwise.
 - Keep replies short and use Markdown. Show code in replies only when it helps; the files are what matter.
 """.strip()
@@ -51,7 +60,24 @@ BATCH_PROMPT = """Work fast, in as few steps as possible. Every step is a round 
 - Don't re-read files you just wrote, and don't list folders you have already seen.
 
 """
-AGENT_SYSTEM_PROMPT = AGENT_SYSTEM_PROMPT_TEMPLATE.replace("{BATCH}", BATCH_PROMPT)
+LONG_RUNNING_OLD = "- Long-running servers (npm run dev and similar) never finish; don't start them unless asked, and tell the user how to run them instead."
+LONG_RUNNING_BACKGROUND = (
+    "- Programs that keep running (dev servers, apps with a window, bots, remotes) never finish. To start one, "
+    "call run_command with background: true. You get what it printed in its first seconds, and it keeps running. "
+    "When the user asks you to run or open their program, start it this way instead of telling them how."
+)
+
+
+def system_prompt(batch: bool, background: bool) -> str:
+    """Arvo's instructions, matched to what this app version can do."""
+    text = AGENT_SYSTEM_PROMPT_TEMPLATE.replace("{BATCH}", BATCH_PROMPT if batch else "")
+    text = text.replace("{LONG_RUNNING}", LONG_RUNNING_BACKGROUND if background else LONG_RUNNING_OLD)
+    if not batch:
+        text = "\n".join(line for line in text.split("\n") if not line.startswith(("- read_files:", "- write_files:")))
+    return text
+
+
+AGENT_SYSTEM_PROMPT = system_prompt(batch=True, background=True)
 
 
 def _tool(name: str, description: str, properties: dict, required: list[str]) -> dict:
@@ -139,16 +165,31 @@ AGENT_TOOLS = [
     ),
 ]
 
+_BACKGROUND = {
+    "type": "boolean",
+    "description": "Start a program that keeps running (a dev server or an app) and leave it running. Returns its first few seconds of output.",
+}
+
 TOOL_NAMES = {t["function"]["name"] for t in AGENT_TOOLS}
 
 READ_ONLY_TOOLS = [t for t in AGENT_TOOLS if t["function"]["name"] in {"list_files", "read_file", "read_files", "search_files"}]
 BATCH_TOOLS = {"read_files", "write_files"}
 
 
-def tools_for(mode: str, batch: bool) -> list[dict]:
-    """Tools for this request. Older app versions don't have the batch tools."""
+def tools_for(mode: str, batch: bool, background: bool = False) -> list[dict]:
+    """Tools for this request. Older app versions don't have every tool or option."""
     tools = READ_ONLY_TOOLS if mode == "plan" else AGENT_TOOLS
-    return tools if batch else [t for t in tools if t["function"]["name"] not in BATCH_TOOLS]
+    if not batch:
+        tools = [t for t in tools if t["function"]["name"] not in BATCH_TOOLS]
+    if background:
+        tools = [_with_background(t) if t["function"]["name"] == "run_command" else t for t in tools]
+    return tools
+
+
+def _with_background(tool: dict) -> dict:
+    fn = tool["function"]
+    params = {**fn["parameters"], "properties": {**fn["parameters"]["properties"], "background": _BACKGROUND}}
+    return {"type": "function", "function": {**fn, "parameters": params}}
 
 PLAN_MODE_PROMPT = """
 PLAN MODE IS ON. You can only look at the project (list, read, search); you cannot edit files or run commands yet.

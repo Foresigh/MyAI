@@ -55,6 +55,7 @@ function label(item: ToolItem): { verb: string; target: string; mono: boolean } 
     case "edit_file":
       return { verb: asking ? "Wants to edit" : "Edited", target: str(args.path), mono: true };
     case "run_command":
+      if (args.background) return { verb: asking ? "Wants to start" : "Started", target: str(args.command), mono: true };
       return { verb: asking ? "Wants to run" : "Ran", target: str(args.command), mono: true };
     default:
       return { verb: "Used", target: name, mono: true };
@@ -77,6 +78,7 @@ function PreviewBody({ preview }: { preview: Preview }) {
           <span className="prompt">{preview.cwd && preview.cwd !== "." ? `${preview.cwd} ` : ""}&gt; </span>
           {preview.command}
         </pre>
+        {preview.background && <div className="preview-note bottom">Keeps running in the background until you close Arvo.</div>}
       </div>
     );
   }

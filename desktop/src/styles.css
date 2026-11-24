@@ -311,3 +311,4 @@ button.mode-item:hover { background: var(--elevated); }
 .copy-btn.row-copy { margin-right: 8px; padding: 3px 6px; border-color: transparent; background: transparent; opacity: .6; }
 .copy-btn.row-copy span { display: none; }
 .tool:hover .copy-btn.row-copy, .copy-btn.row-copy.copied { opacity: 1; }
+.preview-note.bottom { padding: 0 12px 8px; }
