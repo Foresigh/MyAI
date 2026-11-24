@@ -18,6 +18,8 @@ type ToolItem = Extract<Item, { kind: "tool" }>;
 const ICONS: Record<string, LucideIcon> = {
   list_files: FolderOpen,
   read_file: FileText,
+  read_files: FileText,
+  write_files: FilePlus,
   search_files: Search,
   write_file: FilePlus,
   edit_file: FilePen,
@@ -36,6 +38,15 @@ function label(item: ToolItem): { verb: string; target: string; mono: boolean } 
       return { verb: "Looked in", target: str(args.path, ".") === "." ? "the project" : str(args.path), mono: str(args.path, ".") !== "." };
     case "read_file":
       return { verb: "Read", target: str(args.path), mono: true };
+    case "read_files": {
+      const paths = Array.isArray(args.paths) ? (args.paths as unknown[]).map(String) : [];
+      return { verb: "Read", target: paths.length > 1 ? `${paths.length} files: ${paths.join(", ")}` : paths[0] ?? "", mono: true };
+    }
+    case "write_files": {
+      const files = Array.isArray(args.files) ? (args.files as { path?: string }[]) : [];
+      const list = files.map((f) => String(f?.path ?? "")).join(", ");
+      return { verb: asking ? "Wants to write" : "Wrote", target: files.length > 1 ? `${files.length} files: ${list}` : list, mono: true };
+    }
     case "search_files":
       return { verb: "Searched for", target: `"${str(args.query)}"`, mono: false };
     case "write_file":
@@ -75,6 +86,22 @@ function PreviewBody({ preview }: { preview: Preview }) {
           {"\n"}
           <span className="add">{lines(preview.newText, "+ ")}</span>
         </pre>
+      </div>
+    );
+  }
+  if (preview.kind === "write_many") {
+    return (
+      <div className="preview">
+        {preview.files.map((f) => (
+          <div key={f.path}>
+            <div className="preview-note">
+              <span className="mono">{f.path}</span> {f.exists ? "(replaces the file)" : "(new file)"}
+            </div>
+            <pre className="code diff">
+              <span className="add">{lines(f.content, "+ ", 25)}</span>
+            </pre>
+          </div>
+        ))}
       </div>
     );
   }

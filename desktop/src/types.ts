@@ -32,7 +32,8 @@ export interface ArvoModel {
 export type Preview =
   | { kind: "command"; command: string; cwd: string }
   | { kind: "edit"; path: string; oldText: string; newText: string }
-  | { kind: "write"; path: string; exists: boolean; content: string };
+  | { kind: "write"; path: string; exists: boolean; content: string }
+  | { kind: "write_many"; files: { path: string; exists: boolean; content: string }[] };
 
 export type AgentEvent =
   | { type: "busy"; busy: boolean }
