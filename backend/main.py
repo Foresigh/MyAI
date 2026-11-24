@@ -35,8 +35,6 @@ from videos.provider import (
 )
 
 
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-MODEL_NAME = os.environ.get("MODEL_NAME", plans.PLAN_MODELS["free"])
 
 ALLOWED_ORIGINS = os.environ.get(
     "ALLOWED_ORIGINS",
@@ -294,67 +292,6 @@ def require_admin(
 
 
 # ============================================================
-# MODEL CACHE
-# ============================================================
-
-_model_cache = {
-    "models": set(),
-    "checked_at": 0.0,
-}
-
-_model_cache_lock = threading.Lock()
-
-
-def get_available_models() -> set[str]:
-    with _model_cache_lock:
-
-        if (
-            time.time() - _model_cache["checked_at"] < 30
-            and _model_cache["models"]
-        ):
-            return _model_cache["models"]
-
-    try:
-
-        resp = requests.get(
-            f"{OLLAMA_URL}/api/tags",
-            timeout=5,
-        )
-
-        resp.raise_for_status()
-
-        models = {
-            m["name"]
-            for m in resp.json().get("models", [])
-        }
-
-        with _model_cache_lock:
-            _model_cache["models"] = models
-            _model_cache["checked_at"] = time.time()
-
-        return models
-
-    except requests.RequestException:
-
-        return _model_cache["models"]
-
-
-def resolve_model_for_plan(plan_id: str) -> str:
-
-    desired = plans.PLAN_MODELS.get(
-        plan_id,
-        plans.PLAN_MODELS["free"],
-    )
-
-    available = get_available_models()
-
-    if not available or desired in available:
-        return desired
-
-    return plans.PLAN_MODELS["free"]
-
-
-# ============================================================
 # USAGE
 # ============================================================
 
@@ -420,35 +357,13 @@ def home():
 
 @app.get("/health")
 def health():
-
-    try:
-
-        resp = requests.get(
-            f"{OLLAMA_URL}/api/tags",
-            timeout=5,
-        )
-
-        resp.raise_for_status()
-
-        models = [
-            m["name"]
-            for m in resp.json().get("models", [])
-        ]
-
-        return {
-            "status": "ok",
-            "ollama": "reachable",
-            "model": MODEL_NAME,
-            "model_available": MODEL_NAME in models,
-        }
-
-    except requests.RequestException as exc:
-
-        return {
-            "status": "error",
-            "ollama": "unreachable",
-            "detail": str(exc),
-        }
+    # Railway's deploy health check and the frontend's status dot use this.
+    # It only checks configuration, so it never spends Groq quota.
+    chat_ready = bool(os.environ.get("GROQ_API_KEY"))
+    return {
+        "status": "ok" if chat_ready else "error",
+        "chat": "ready" if chat_ready else "GROQ_API_KEY is not set",
+    }
 
 
 # ============================================================
