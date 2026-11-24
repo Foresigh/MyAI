@@ -1,4 +1,4 @@
-export type ApprovalMode = "ask" | "edits" | "auto";
+export type ApprovalMode = "auto" | "manual" | "edits" | "plan" | "bypass";
 
 export interface Settings {
   apiUrl: string;
@@ -6,7 +6,14 @@ export interface Settings {
   email: string;
   model: string;
   approvalMode: ApprovalMode;
+  bypassEnabled: boolean;
   recentWorkspaces: string[];
+}
+
+export interface ChatSummary {
+  id: string;
+  title: string;
+  updatedAt: number;
 }
 
 export interface Workspace {
@@ -33,7 +40,10 @@ export type AgentEvent =
   | { type: "tool_start"; id: string; name: string; args: Record<string, unknown> }
   | { type: "tool_output"; id: string; chunk: string }
   | { type: "tool_result"; id: string; ok: boolean; output: string; declined?: boolean }
-  | { type: "approval"; id: string; name: string; kind: "edit" | "command"; preview: Preview }
+  | { type: "approval"; id: string; name: string; kind: "edit" | "command"; preview: Preview; reason?: string }
+  | { type: "tool_running"; id: string }
+  | { type: "plan_ready" }
+  | { type: "update"; state: UpdateState }
   | { type: "waiting"; seconds: number }
   | { type: "error"; message: string }
   | { type: "stopped" };
@@ -53,7 +63,14 @@ export type Item =
       output: string;
       preview?: Preview;
       approvalKind?: "edit" | "command";
-    };
+      reason?: string;
+    }
+  | { kind: "plan"; id: string; decided: boolean };
+
+export type UpdateState =
+  | { status: "none" }
+  | { status: "downloading"; version: string; percent: number }
+  | { status: "ready"; version: string };
 
 export interface ArvoBridge {
   getSettings(): Promise<Settings>;
@@ -66,7 +83,13 @@ export interface ArvoBridge {
   send(text: string): Promise<{ ok?: boolean; error?: string }>;
   stop(): Promise<void>;
   newChat(): Promise<void>;
+  saveChat(items: Item[]): Promise<void>;
+  listChats(): Promise<ChatSummary[]>;
+  openChat(id: string): Promise<{ id: string; items: Item[] } | null>;
+  deleteChat(id: string): Promise<void>;
   respondApproval(id: string, decision: "allow" | "always" | "deny"): Promise<void>;
+  getUpdate(): Promise<UpdateState>;
+  installUpdate(): Promise<void>;
   onEvent(callback: (event: AgentEvent) => void): () => void;
 }
 

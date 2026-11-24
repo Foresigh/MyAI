@@ -13,7 +13,13 @@ contextBridge.exposeInMainWorld("arvo", {
   send: (text) => ipcRenderer.invoke("chat:send", text),
   stop: () => ipcRenderer.invoke("chat:stop"),
   newChat: () => ipcRenderer.invoke("chat:new"),
+  saveChat: (items) => ipcRenderer.invoke("chat:save", items),
+  listChats: () => ipcRenderer.invoke("chat:list"),
+  openChat: (id) => ipcRenderer.invoke("chat:open", id),
+  deleteChat: (id) => ipcRenderer.invoke("chat:delete", id),
   respondApproval: (id, decision) => ipcRenderer.invoke("approval:respond", id, decision),
+  getUpdate: () => ipcRenderer.invoke("update:status"),
+  installUpdate: () => ipcRenderer.invoke("update:install"),
   onEvent: (callback) => {
     const listener = (_e, event) => callback(event);
     ipcRenderer.on("agent:event", listener);

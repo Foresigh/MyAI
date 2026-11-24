@@ -129,6 +129,7 @@ export function ToolCard({ item, onDecide }: Props) {
 
       {asking && item.preview && (
         <div className="approval">
+          {item.reason && <div className="approval-reason">{item.reason}</div>}
           <PreviewBody preview={item.preview} />
           <div className="approval-actions">
             <button className="btn primary" onClick={() => onDecide("allow")} autoFocus>

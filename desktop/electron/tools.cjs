@@ -8,7 +8,10 @@ const { spawn, execFile } = require("node:child_process");
 
 const MAX_OUTPUT = 12000; // characters of tool output sent back to the model
 const MAX_READ_LINES = 1500;
-const COMMAND_TIMEOUT_MS = 120_000;
+const COMMAND_TIMEOUT_MS = 5 * 60_000;
+// Installing packages or creating a project can take a long time.
+const SLOW_COMMAND = /\b(install|ci|add|create|init|build|prebuild|export|pip|poetry|cargo)\b/i;
+const SLOW_COMMAND_TIMEOUT_MS = 15 * 60_000;
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", ".next", ".expo", ".venv", "venv", "__pycache__", "release", ".turbo", "coverage"]);
 
 class ToolError extends Error {}
@@ -194,10 +197,11 @@ if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }; exit
     };
     child.stdout.on("data", add);
     child.stderr.on("data", add);
+    const limit = SLOW_COMMAND.test(command) ? SLOW_COMMAND_TIMEOUT_MS : COMMAND_TIMEOUT_MS;
     const timer = setTimeout(() => {
       timedOut = true;
       killTree(child);
-    }, COMMAND_TIMEOUT_MS);
+    }, limit);
     const abort = () => killTree(child);
     signal?.addEventListener("abort", abort, { once: true });
     const finish = (code, error) => {
@@ -207,7 +211,7 @@ if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }; exit
       let text = output.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").trim();
       text = clip(text || "(no output)");
       if (error) text += `\n[Could not start the command: ${error.message}]`;
-      else if (timedOut) text += "\n[Stopped after 2 minutes. Long-running commands like dev servers never finish here.]";
+      else if (timedOut) text += `\n[Stopped after ${limit / 60_000} minutes. Long-running commands like dev servers never finish here.]`;
       else if (signal?.aborted) text += "\n[Stopped by the user.]";
       else text += `\n[Exit code ${code}]`;
       resolve({ output: text, ok: !error && !timedOut && code === 0 });

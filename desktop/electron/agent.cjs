@@ -4,6 +4,7 @@
 
 const path = require("node:path");
 const { runTool, previewFor, NEEDS_APPROVAL } = require("./tools.cjs");
+const { decide, normalizeMode } = require("./permissions.cjs");
 
 const MAX_STEPS = 40;
 
@@ -26,13 +27,13 @@ function sleep(ms, signal) {
   });
 }
 
-async function askServer({ apiUrl, email, model, workspace, messages, signal }) {
+async function askServer({ apiUrl, email, model, mode, workspace, messages, signal }) {
   let response;
   try {
     response = await fetch(`${apiUrl}/agent/step`, {
       method: "POST",
       headers: { "Content-Type": "application/json", ...(email ? { "X-User-Email": email } : {}) },
-      body: JSON.stringify({ messages, model, workspace: path.basename(workspace), platform: process.platform }),
+      body: JSON.stringify({ messages, model, mode, workspace: path.basename(workspace), platform: process.platform }),
       signal: AbortSignal.any([signal, AbortSignal.timeout(180_000)]),
     });
   } catch (err) {
@@ -68,7 +69,8 @@ function parseArgs(raw) {
  * Run one user request to completion.
  *
  * session:  { workspace, messages, alwaysAllow: Set<"edit"|"command"> }
- * settings: { apiUrl, email, model, approvalMode: "ask" | "edits" | "auto" }
+ * settings: { apiUrl, email, model, getMode() } — the mode is read on every
+ *           step, so switching it mid-task takes effect straight away.
  * emit(event) sends progress to the window; approve(request) resolves to
  * "allow" | "always" | "deny".
  */
@@ -80,7 +82,13 @@ async function runTurn({ session, text, settings, emit, approve, signal }) {
     let reply;
     for (let attempt = 0; ; attempt++) {
       try {
-        reply = await askServer({ ...settings, workspace: session.workspace, messages: session.messages, signal });
+        reply = await askServer({
+          ...settings,
+          mode: normalizeMode(settings.getMode()) === "plan" ? "plan" : "act",
+          workspace: session.workspace,
+          messages: session.messages,
+          signal,
+        });
         break;
       } catch (err) {
         // Groq's free per-minute limits are low; wait them out a few times.
@@ -112,15 +120,17 @@ async function runTurn({ session, text, settings, emit, approve, signal }) {
       emit({ type: "tool_start", id, name, args });
 
       const kind = NEEDS_APPROVAL[name];
-      const autoAllowed =
-        !kind ||
-        settings.approvalMode === "auto" ||
-        (settings.approvalMode === "edits" && kind === "edit") ||
-        session.alwaysAllow.has(kind);
-      if (!autoAllowed) {
+      const verdict = decide(settings.getMode(), kind, args, session.alwaysAllow);
+      if (verdict.action === "block") {
+        session.messages.push({ role: "tool", tool_call_id: id, content: verdict.reason });
+        emit({ type: "tool_result", id, ok: false, declined: true, output: "Not in plan mode" });
+        continue;
+      }
+      if (verdict.action === "ask") {
         const preview = await previewFor(session.workspace, name, args);
-        const decision = await approve({ id, name, kind, preview });
+        const decision = await approve({ id, name, kind, preview, reason: verdict.reason });
         if (decision === "always") session.alwaysAllow.add(kind);
+        if (decision !== "deny" && !signal.aborted) emit({ type: "tool_running", id });
         if (decision === "deny" || signal.aborted) {
           const content = signal.aborted ? "Stopped by the user." : "The user declined this. Don't try it again; ask what they would like instead.";
           session.messages.push({ role: "tool", tool_call_id: id, content });

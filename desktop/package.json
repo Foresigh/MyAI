@@ -1,7 +1,7 @@
 {
   "name": "arvo-desktop",
   "productName": "Arvo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Arvo for your computer: chat with Arvo and let it code in your projects.",
   "author": "Kayi Berisa",
   "private": true,
@@ -11,7 +11,8 @@
     "start": "electron .",
     "build": "tsc --noEmit && vite build",
     "test": "node electron/test-tools.cjs",
-    "dist": "npm run build && electron-builder --win"
+    "dist": "npm run build && electron-builder --win",
+    "release": "npm run build && electron-builder --win --publish always"
   },
   "build": {
     "appId": "com.arvo.desktop",
@@ -23,10 +24,12 @@
       "dist/**",
       "electron/**",
       "!electron/test-*.cjs",
+      "build/icon.png",
       "package.json"
     ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
@@ -34,13 +37,24 @@
     },
     "mac": {
       "target": "dmg",
-      "category": "public.app-category.developer-tools"
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png"
     },
     "linux": {
-      "target": "AppImage"
-    }
+      "target": "AppImage",
+      "icon": "build/icon.png"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Foresigh",
+        "repo": "MyAI",
+        "releaseType": "release"
+      }
+    ]
   },
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "lucide-react": "^1.78.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
