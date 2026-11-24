@@ -95,7 +95,7 @@ AGENT_TOOLS = [
     ),
     _tool(
         "run_command",
-        "Run a shell command in the workspace and return its output. Times out after 2 minutes.",
+        "Run a shell command in the workspace and return its output. Stops after 5 minutes (15 for installs and builds).",
         {
             "command": {"type": "string", "description": "The command to run."},
             "cwd": {"type": "string", "description": "Folder to run it in, relative to the workspace. Defaults to the workspace."},
@@ -106,9 +106,18 @@ AGENT_TOOLS = [
 
 TOOL_NAMES = {t["function"]["name"] for t in AGENT_TOOLS}
 
+READ_ONLY_TOOLS = [t for t in AGENT_TOOLS if t["function"]["name"] in {"list_files", "read_file", "search_files"}]
+
+PLAN_MODE_PROMPT = """
+PLAN MODE IS ON. You can only look at the project (list, read, search); you cannot edit files or run commands yet.
+Explore what you need, then reply with a clear, numbered plan: which files you will create or change, what each change does,
+which commands you will run, and how you will check the result. Keep it short. Do not write the full code yet.
+The user will approve the plan, and then you will carry it out.
+""".strip()
+
 # Each request carries the whole conversation, so keep it within what the
 # model (and Groq's per-minute token limits) can take.
-AGENT_CHAR_BUDGET = 40_000
+AGENT_CHAR_BUDGET = 24_000
 MAX_STEPS_PER_TURN = 40
 TRIMMED = "[Older output removed to save space. Run the tool again if you need it.]"
 
@@ -128,7 +137,7 @@ def trim_messages(messages: list[dict]) -> list[dict]:
     messages = [dict(m) for m in messages]
     total = sum(_size(m) for m in messages)
     # Leave the newest few messages alone; the model is working on those.
-    for message in messages[:-4]:
+    for message in messages[:-3]:
         if total <= AGENT_CHAR_BUDGET:
             break
         if message["role"] == "tool" and len(message.get("content") or "") > len(TRIMMED):

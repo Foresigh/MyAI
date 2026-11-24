@@ -742,6 +742,7 @@ class AgentStepRequest(BaseModel):
     model: str | None = None
     workspace: str | None = None  # folder name only, shown to the model
     platform: str | None = None   # "win32", "darwin" or "linux"
+    mode: Literal["act", "plan"] = "act"
 
 
 @app.post("/agent/step")
@@ -778,10 +779,12 @@ def agent_step(request: AgentStepRequest, http_request: Request):
     context = f"The workspace folder is named \"{(request.workspace or 'project')[:80]}\"."
     if request.platform in shell:
         context += f" The computer runs {shell[request.platform]}."
+    if request.mode == "plan":
+        context += "\n\n" + agent.PLAN_MODE_PROMPT
     system = {"role": "system", "content": f"{agent.AGENT_SYSTEM_PROMPT}\n\n{context}"}
 
     payload = _groq_payload(request.model, [system, *agent.trim_messages(messages)], stream=False)
-    payload["tools"] = agent.AGENT_TOOLS
+    payload["tools"] = agent.READ_ONLY_TOOLS if request.mode == "plan" else agent.AGENT_TOOLS
     payload["tool_choice"] = "auto"
 
     try:
