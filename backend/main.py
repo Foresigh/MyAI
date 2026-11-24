@@ -820,6 +820,20 @@ def agent_step(request: AgentStepRequest, http_request: Request):
 
     reply = response.json()["choices"][0]["message"]
     tool_calls = [c for c in agent.clean_tool_calls(reply.get("tool_calls")) if c["function"]["name"] in agent.TOOL_NAMES]
+    if not tool_calls and not strip_thinking(reply.get("content") or "").strip():
+        # The smaller model sometimes answers with nothing; ask once more
+        # rather than silently ending the task.
+        groq_logger.warning("Empty agent reply from %s, asking again", payload["model"])
+        payload["messages"] = [*payload["messages"], {"role": "user", "content": agent.EMPTY_REPLY_HINT}]
+        try:
+            retry, limit_error = _post_groq(payload, stream=False, timeout=120)
+            if not limit_error and retry.status_code < 400:
+                reply = retry.json()["choices"][0]["message"]
+                tool_calls = [c for c in agent.clean_tool_calls(reply.get("tool_calls")) if c["function"]["name"] in agent.TOOL_NAMES]
+        except requests.RequestException:
+            pass
+        if not tool_calls and not strip_thinking(reply.get("content") or "").strip():
+            reply = {"content": "I stopped before finishing. Send a message (for example \"keep going\") and I'll continue."}
     return {
         "message": {
             "role": "assistant",

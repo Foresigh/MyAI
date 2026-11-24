@@ -230,3 +230,8 @@ TOOL_RETRY_HINT = (
     "(Note from the Arvo app: your last tool call could not be read, probably because it was too long "
     "or the JSON was broken. Try again with valid JSON and smaller calls: at most 3 files per write_files call.)"
 )
+
+EMPTY_REPLY_HINT = (
+    "(Note from the Arvo app: your last reply was empty. Continue the task with tools. "
+    "If it is finished, reply with a short summary of what you did.)"
+)
