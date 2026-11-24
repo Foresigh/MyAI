@@ -788,19 +788,27 @@ def agent_step(request: AgentStepRequest, http_request: Request):
     payload["tool_choice"] = "auto"
 
     try:
-        for attempt in (1, 2):
+        for attempt in (1, 2, 3):
             response, limit_error = _post_groq(payload, stream=False, timeout=120)
             if limit_error:
                 raise HTTPException(status_code=429, detail=limit_error)
             # Groq returns 400 tool_use_failed when the model writes a broken
-            # tool call; asking again usually works.
-            if response.status_code == 400 and "tool_use_failed" in response.text and attempt == 1:
-                groq_logger.warning("Groq tool_use_failed for %s, retrying", payload["model"])
+            # tool call, usually because it tried to send too much at once.
+            # Ask again, and after the first miss tell it to send less.
+            if response.status_code == 400 and "tool_use_failed" in response.text and attempt < 3:
+                groq_logger.warning("Groq tool_use_failed for %s (attempt %d), retrying", payload["model"], attempt)
+                if attempt == 1:
+                    payload["messages"] = [*payload["messages"], {"role": "user", "content": agent.TOOL_RETRY_HINT}]
                 continue
             break
         if response.status_code >= 400:
-            groq_logger.warning("Groq agent error %s: %s", response.status_code, _ORG_ID_RE.sub("org_***", _groq_error_text(response)))
-            raise HTTPException(status_code=502, detail="Arvo couldn't finish that step. Please try again.")
+            error_text = _groq_error_text(response)
+            groq_logger.warning("Groq agent error %s: %s", response.status_code, _ORG_ID_RE.sub("org_***", error_text))
+            if "tool_use_failed" in response.text:
+                detail = "Arvo tried to do too much in one step and the model got muddled. Please try again, or ask for a smaller piece."
+            else:
+                detail = f"Arvo couldn't finish that step ({response.status_code}). Please try again."
+            raise HTTPException(status_code=502, detail=detail)
     except requests.RequestException as exc:
         raise HTTPException(status_code=502, detail="Could not reach the model. Please try again.") from exc
 

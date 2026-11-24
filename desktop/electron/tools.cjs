@@ -80,6 +80,21 @@ async function readFile(workspace, { path: rel, start_line, end_line }) {
   return clip(out, 20000);
 }
 
+async function readFiles(workspace, { paths }) {
+  if (!Array.isArray(paths) || paths.length === 0) throw new ToolError("Give a list of paths to read.");
+  const parts = await Promise.all(
+    paths.slice(0, 12).map(async (p) => {
+      try {
+        return `===== ${p} =====\n${await readFile(workspace, { path: p })}`;
+      } catch (err) {
+        return `===== ${p} =====\n${err instanceof ToolError ? err.message : `Error: ${err.message}`}`;
+      }
+    })
+  );
+  if (paths.length > 12) parts.push(`[Only the first 12 files were read.]`);
+  return clip(parts.join("\n\n"), 30000);
+}
+
 async function* walk(dir) {
   let entries;
   try {
@@ -136,6 +151,20 @@ async function writeFile(workspace, { path: rel, content }) {
   await fsp.mkdir(path.dirname(abs), { recursive: true });
   await fsp.writeFile(abs, content, "utf8");
   return `${existed ? "Updated" : "Created"} ${display(workspace, abs)} (${content.split("\n").length} lines).`;
+}
+
+async function writeFiles(workspace, { files }) {
+  if (!Array.isArray(files) || files.length === 0) throw new ToolError("Give a list of files to write.");
+  if (files.length > 30) throw new ToolError("Write at most 30 files at once.");
+  // Check every path first, so a bad one doesn't leave a half-written set.
+  for (const f of files) {
+    const abs = resolveInside(workspace, f?.path);
+    if (isSecretFile(abs)) throw new ToolError(`Arvo doesn't write secret files like ${f.path}. Ask the user to edit it.`);
+    if (typeof f.content !== "string") throw new ToolError(`content for ${f.path} must be text.`);
+  }
+  const results = [];
+  for (const f of files) results.push(await writeFile(workspace, f));
+  return results.join("\n");
 }
 
 async function editFile(workspace, { path: rel, old_text, new_text }) {
@@ -222,7 +251,7 @@ if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }; exit
 }
 
 /** Tools that change things and so may need the user's OK. */
-const NEEDS_APPROVAL = { write_file: "edit", edit_file: "edit", run_command: "command" };
+const NEEDS_APPROVAL = { write_file: "edit", write_files: "edit", edit_file: "edit", run_command: "command" };
 
 /** What to show the user before they approve a tool call. */
 async function previewFor(workspace, name, args) {
@@ -232,6 +261,18 @@ async function previewFor(workspace, name, args) {
     exists = fs.existsSync(resolveInside(workspace, args.path));
   } catch {
     // The tool itself will report the bad path.
+  }
+  if (name === "write_files") {
+    const files = (Array.isArray(args.files) ? args.files : []).map((f) => {
+      let existsNow = false;
+      try {
+        existsNow = fs.existsSync(resolveInside(workspace, f.path));
+      } catch {
+        // Reported when the tool runs.
+      }
+      return { path: String(f?.path || ""), exists: existsNow, content: String(f?.content || "") };
+    });
+    return { kind: "write_many", files };
   }
   if (name === "edit_file") return { kind: "edit", path: args.path, oldText: args.old_text || "", newText: args.new_text || "" };
   return { kind: "write", path: args.path, exists, content: String(args.content || "") };
@@ -244,6 +285,10 @@ async function runTool(workspace, name, args, options = {}) {
         return { ok: true, output: await listFiles(workspace, args) };
       case "read_file":
         return { ok: true, output: await readFile(workspace, args) };
+      case "read_files":
+        return { ok: true, output: await readFiles(workspace, args) };
+      case "write_files":
+        return { ok: true, output: await writeFiles(workspace, args) };
       case "search_files":
         return { ok: true, output: await searchFiles(workspace, args) };
       case "write_file":

@@ -28,7 +28,7 @@ You can look at it and change it with tools:
 
 Work fast, in as few steps as possible. Every step is a round trip, so:
 - Read everything you need in one step (read_files with all the paths, or several tool calls together).
-- Write all the files for a change in one step with write_files, complete and working, not one file per step.
+- Write the files for a change together with write_files (up to about 5 files per call; for more, make several write_files calls in the same reply), complete and working, not one file per step.
 - You may call several tools in the same reply; they run together.
 - Don't re-read files you just wrote, and don't list folders you have already seen.
 
@@ -212,3 +212,11 @@ def clean_tool_calls(tool_calls: list[dict] | None) -> list[dict]:
             "function": {"name": fn.get("name", ""), "arguments": args},
         })
     return out
+
+
+# Sent (as a note, not shown to the user) when the model's tool call could
+# not be parsed, which usually means it tried to send too much at once.
+TOOL_RETRY_HINT = (
+    "(Note from the Arvo app: your last tool call could not be read, probably because it was too long "
+    "or the JSON was broken. Try again with valid JSON and smaller calls: at most 3 files per write_files call.)"
+)

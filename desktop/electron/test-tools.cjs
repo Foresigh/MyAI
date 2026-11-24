@@ -50,6 +50,16 @@ const { runTool } = require("./tools.cjs");
   r = await runTool(ws, "run_command", { command: "echo hi", cwd: ".." });
   assert.equal(r.ok, false);
 
+  r = await runTool(ws, "write_files", { files: [{ path: "a/one.txt", content: "1" }, { path: "a/two.txt", content: "2" }] });
+  assert.ok(r.ok, r.output);
+  r = await runTool(ws, "read_files", { paths: ["a/one.txt", "a/two.txt", "missing.txt", ".env"] });
+  assert.match(r.output, /===== a\/one.txt =====\n1  1/);
+  assert.match(r.output, /There is no file called missing.txt/);
+  assert.doesNotMatch(r.output, /hidden/);
+  r = await runTool(ws, "write_files", { files: [{ path: "ok.txt", content: "x" }, { path: "../bad.txt", content: "x" }] });
+  assert.equal(r.ok, false);
+  assert.ok(!fs.existsSync(path.join(ws, "ok.txt")), "nothing is written when one path is bad");
+
   const controller = new AbortController();
   setTimeout(() => controller.abort(), 500);
   const started = Date.now();
