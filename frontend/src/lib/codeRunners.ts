@@ -19,8 +19,11 @@ function packageName(spec: string): string | null {
   return BUILT_IN.has(name) ? null : name;
 }
 
-/** Builds an Expo Snack link that opens the code as a runnable app. */
-export function expoSnackUrl(language: string, code: string): string {
+/**
+ * Builds an Expo Snack link that opens the code as a runnable app.
+ * `embedded` gives the minimal player used for the in-chat preview.
+ */
+export function expoSnackUrl(language: string, code: string, embedded = false): string {
   const isTs = ["ts", "tsx", "typescript"].includes(language.toLowerCase());
   const files = { [isTs ? "App.tsx" : "App.js"]: { type: "CODE", contents: code } };
   const deps = new Set<string>();
@@ -35,5 +38,6 @@ export function expoSnackUrl(language: string, code: string): string {
     ["files", JSON.stringify(files)],
   ];
   if (deps.size) params.push(["dependencies", [...deps].join(",")]);
-  return `https://snack.expo.dev/?${params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")}`;
+  if (embedded) params.push(["preview", "true"], ["theme", "dark"], ["supportedPlatforms", "web,mydevice"]);
+  return `https://snack.expo.dev/${embedded ? "embedded" : ""}?${params.map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join("&")}`;
 }

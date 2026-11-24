@@ -5,3 +5,4 @@ pydantic
 stripe
 httpx
 python-dotenv
+gradio_client

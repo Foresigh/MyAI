@@ -58,3 +58,8 @@ a.copyButton {
   background: #ffffff;
   resize: vertical;
 }
+
+.appPreview {
+  height: 620px;
+  background: #0d0f12;
+}

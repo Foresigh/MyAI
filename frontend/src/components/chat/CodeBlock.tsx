@@ -30,7 +30,7 @@ export default function CodeBlock({ language, code }: CodeBlockProps) {
       <div className={styles.header}>
         <span className={styles.language}>{language || "text"}</span>
         <div className={styles.actions}>
-          {canPreview && (
+          {(canPreview || isExpo) && (
             <button className={styles.copyButton} onClick={() => setShowPreview((v) => !v)} type="button">
               {showPreview ? <Code2 size={13} /> : <Eye size={13} />}
               {showPreview ? "Code" : "Preview"}
@@ -54,7 +54,16 @@ export default function CodeBlock({ language, code }: CodeBlockProps) {
           </button>
         </div>
       </div>
-      {showPreview ? (
+      {showPreview && isExpo ? (
+        // Snack's embedded player runs on its own domain, so it can't reach Arvo's storage.
+        <iframe
+          className={`${styles.preview} ${styles.appPreview}`}
+          title="App preview"
+          src={expoSnackUrl(language, code, true)}
+          allow="clipboard-write"
+          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+        />
+      ) : showPreview ? (
         // No allow-same-origin: the page runs isolated from Arvo and can't read its storage.
         <iframe
           className={styles.preview}

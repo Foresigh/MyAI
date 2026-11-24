@@ -13,7 +13,7 @@ import requests
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 import arvo_models
 
@@ -988,9 +988,34 @@ def generate_image(
 # VIDEO GENERATION
 # ============================================================
 
+def _absolute_url(http_request: Request, url: str | None) -> str | None:
+    """Turn a backend path like /generate-video/x/file into a full URL.
+
+    The frontend runs on a different domain, so relative paths would point at
+    the wrong server. Railway terminates HTTPS at its proxy, so honour
+    X-Forwarded-Proto to avoid handing the browser an http:// link.
+    """
+    if not url or not url.startswith("/"):
+        return url
+    proto = http_request.headers.get("x-forwarded-proto", http_request.url.scheme).split(",")[0].strip()
+    host = http_request.headers.get("x-forwarded-host") or http_request.headers.get("host") or http_request.url.netloc
+    return f"{proto}://{host}{url}"
+
+
+@app.get("/generate-video/{job_id}/file")
+def get_video_file(job_id: str):
+    from videos.free_provider import video_file_path
+
+    path = video_file_path(job_id)
+    if not path:
+        raise HTTPException(status_code=404, detail="This video is no longer available.")
+    return FileResponse(path, media_type="video/mp4", filename=f"arvo-{job_id[:8]}.mp4")
+
+
 @app.post("/generate-video")
 def generate_video(
     request: VideoGenerateBody,
+    http_request: Request,
 ):
 
     if not request.prompt.strip():
@@ -1034,7 +1059,7 @@ def generate_video(
     return {
         "job_id": job.id,
         "status": job.status.value,
-        "video_url": job.video_url,
+        "video_url": _absolute_url(http_request, job.video_url),
         "progress": job.progress,
     }
 
@@ -1042,6 +1067,7 @@ def generate_video(
 @app.get("/generate-video/{job_id}")
 def get_video_job(
     job_id: str,
+    http_request: Request,
 ):
 
     provider = get_video_provider()
@@ -1060,7 +1086,7 @@ def get_video_job(
     return {
         "job_id": job.id,
         "status": job.status.value,
-        "video_url": job.video_url,
+        "video_url": _absolute_url(http_request, job.video_url),
         "thumbnail_url": job.thumbnail_url,
         "progress": job.progress,
         "error": job.error,

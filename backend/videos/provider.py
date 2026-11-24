@@ -61,7 +61,13 @@ class VideoProvider(ABC):
 
 
 def get_video_provider() -> VideoProvider:
-    provider_name = os.environ.get("VIDEO_PROVIDER", "cloud").lower()
+    # Default: Runway when a key is set, otherwise the free Hugging Face Space.
+    default = "cloud" if os.environ.get("VIDEO_API_KEY") else "free"
+    provider_name = os.environ.get("VIDEO_PROVIDER", default).lower()
+    if provider_name == "free":
+        from .free_provider import FreeVideoProvider
+
+        return FreeVideoProvider()
     if provider_name == "local":
         from .local_provider import LocalVideoProvider
 
@@ -71,5 +77,5 @@ def get_video_provider() -> VideoProvider:
 
         return CloudVideoProvider()
     raise VideoProviderError(
-        f"Unknown VIDEO_PROVIDER '{provider_name}'. Expected 'cloud' or 'local'."
+        f"Unknown VIDEO_PROVIDER '{provider_name}'. Expected 'free', 'cloud' or 'local'."
     )
