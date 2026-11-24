@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Arvo",
+    "slug": "arvo",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.arvo.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0b0c0f",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "package": "com.arvo.app"
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Arvo uses your photos so you can ask questions about pictures.",
+          "cameraPermission": "Arvo uses your camera so you can take a picture and ask about it."
+        }
+      ],
+      "expo-font"
+    ],
+    "scheme": "arvo",
+    "backgroundColor": "#0b0c0f",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
