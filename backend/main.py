@@ -806,6 +806,12 @@ def agent_step(request: AgentStepRequest, http_request: Request):
             status_code=429,
             detail="Arvo has taken a lot of steps on this request. Send a new message to keep going.",
         )
+    # Stop a model that keeps rewriting the same file, before it uses up the
+    # day's limit going round in circles.
+    repeat_note, repeat_stop = agent.repeat_check(messages)
+    if repeat_stop:
+        groq_logger.warning("Agent stopped: kept rewriting the same file")
+        return {"message": {"role": "assistant", "content": repeat_stop}}
     # A new request from the user counts as one message; the tool steps that
     # follow it are free.
     if messages[-1]["role"] == "user":
@@ -828,7 +834,10 @@ def agent_step(request: AgentStepRequest, http_request: Request):
     background = "background" in request.features
     system = {"role": "system", "content": f"{agent.system_prompt(batch, background)}\n\n{context}"}
 
-    payload = _groq_payload(request.model, [system, *agent.trim_messages(messages)], stream=False)
+    trimmed = agent.trim_messages(messages)
+    if repeat_note:
+        trimmed.append({"role": "user", "content": repeat_note})
+    payload = _groq_payload(request.model, [system, *trimmed], stream=False)
     payload["tools"] = agent.tools_for(request.mode, batch, background)
     payload["tool_choice"] = "auto"
 

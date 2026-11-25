@@ -274,6 +274,71 @@ def trim_messages(messages: list[dict]) -> list[dict]:
     return messages
 
 
+REPEAT_WRITE_NOTE_AT = 3
+REPEAT_WRITE_STOP_AT = 5
+REPEAT_READ_NOTE_AT = 4
+
+
+def _calls_since_user(messages: list[dict]) -> list[tuple[str, dict]]:
+    calls = []
+    for message in reversed(messages):
+        if message["role"] == "user":
+            break
+        for call in message.get("tool_calls") or []:
+            fn = call.get("function") or {}
+            try:
+                args = json.loads(fn.get("arguments") or "{}")
+            except ValueError:
+                args = {}
+            calls.append((fn.get("name", ""), args if isinstance(args, dict) else {}))
+    return calls
+
+
+def _paths(name: str, args: dict) -> list[str]:
+    if name in ("write_files",):
+        return [str(f.get("path", "")) for f in args.get("files") or [] if isinstance(f, dict)]
+    if name == "read_files":
+        return [str(p) for p in args.get("paths") or []]
+    return [str(args["path"])] if args.get("path") else []
+
+
+def repeat_check(messages: list[dict]) -> tuple[str | None, str | None]:
+    """Spot the model going round in circles on one file since the user's last message.
+
+    Returns (note, stop): a note to add for the model, or a message that
+    ends the turn because it is clearly stuck.
+    """
+    writes: dict[str, int] = {}
+    reads: dict[str, int] = {}
+    for name, args in _calls_since_user(messages):
+        counter = writes if name in ("write_file", "write_files", "edit_file") else reads if name in ("read_file", "read_files") else None
+        if counter is None:
+            continue
+        for path in _paths(name, args):
+            counter[path] = counter.get(path, 0) + 1
+    path, count = max(writes.items(), key=lambda kv: kv[1], default=("", 0))
+    if count >= REPEAT_WRITE_STOP_AT:
+        return None, (
+            f"I've rewritten `{path}` {count} times and it keeps coming out incomplete, so I stopped to avoid going "
+            "round in circles. This happens with some models on long files. Try again with **Arvo 1.2**, "
+            "or ask me to split the file into smaller files."
+        )
+    if count >= REPEAT_WRITE_NOTE_AT:
+        return (
+            f"(Note from the Arvo app: you have written {path} {count} times since the user's last message. "
+            "If it keeps coming out cut short, stop rewriting the whole file. Write it in smaller pieces instead: "
+            "split it into several smaller files, or write the first part and add the rest with edit_file. "
+            "If you can't finish it, stop and tell the user plainly.)"
+        ), None
+    path, count = max(reads.items(), key=lambda kv: kv[1], default=("", 0))
+    if count >= REPEAT_READ_NOTE_AT:
+        return (
+            f"(Note from the Arvo app: you have read {path} {count} times since the user's last message. "
+            "Don't read it again; use what you already have, then continue or finish.)"
+        ), None
+    return None, None
+
+
 def steps_since_user(messages: list[dict]) -> int:
     count = 0
     for message in reversed(messages):

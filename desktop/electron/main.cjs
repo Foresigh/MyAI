@@ -38,9 +38,19 @@ function startUpdater() {
     console.warn("Update check failed:", err?.message);
     if (update.status === "downloading") setUpdate({ status: "none" });
   });
-  const check = () => autoUpdater.checkForUpdates().catch(() => {});
+  // Check at start, every 30 minutes, and when the user comes back to the
+  // window (at most every 10 minutes), so a new version shows up quickly.
+  let lastCheck = 0;
+  const check = () => {
+    if (update.status === "downloading" || update.status === "ready") return;
+    lastCheck = Date.now();
+    autoUpdater.checkForUpdates().catch(() => {});
+  };
   check();
-  setInterval(check, 4 * 60 * 60 * 1000);
+  setInterval(check, 30 * 60 * 1000);
+  app.on("browser-window-focus", () => {
+    if (Date.now() - lastCheck > 10 * 60 * 1000) check();
+  });
   ipcMain.handle("update:install", () => {
     if (update.status !== "ready") return;
     stopRunning();
