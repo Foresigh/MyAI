@@ -865,7 +865,21 @@ def agent_step(request: AgentStepRequest, http_request: Request):
     except requests.RequestException as exc:
         raise HTTPException(status_code=502, detail="Could not reach the model. Please try again.") from exc
 
-    reply = response.json()["choices"][0]["message"]
+    choice = response.json()["choices"][0]
+    if choice.get("finish_reason") == "length":
+        # The reply hit the model's length limit, so a file it was writing is
+        # cut off part-way. Don't pass that on: ask for smaller pieces.
+        groq_logger.warning("Agent reply from %s cut off by length (usage %s), asking for smaller pieces",
+                            payload["model"], (response.json().get("usage") or {}).get("completion_tokens"))
+        payload["messages"] = [*payload["messages"], {"role": "user", "content": agent.LENGTH_HINT}]
+        try:
+            retry = _post_agent(payload, models)
+            choice = retry.json()["choices"][0] if retry.status_code < 400 else {}
+        except requests.RequestException:
+            choice = {}
+        if choice.get("finish_reason") != "stop" and choice.get("finish_reason") != "tool_calls":
+            return {"message": {"role": "assistant", "content": agent.LENGTH_STOP}}
+    reply = choice["message"]
     tool_calls = [c for c in agent.clean_tool_calls(reply.get("tool_calls")) if c["function"]["name"] in agent.TOOL_NAMES]
     if not tool_calls and not strip_thinking(reply.get("content") or "").strip():
         # The smaller model sometimes answers with nothing; ask once more

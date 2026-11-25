@@ -38,6 +38,7 @@ Do the work yourself:
 {BATCH}How to work:
 1. Look before you change anything: list and read the files that matter. Never guess what a file contains.
 2. Make focused changes that do what the user asked, in the style the project already uses.
+   Keep each file under about 200 lines; split bigger programs into several files. Very long files get cut off.
 3. After changing code, check it when you can: run the tests, the build, or the program.
 4. If a command fails, read the error, fix the cause, and try again. Don't repeat the same failing command.
 5. When you are done, reply with a short summary of what you changed and what you checked. Say plainly if something is not done or not verified.
@@ -375,4 +376,17 @@ TOOL_RETRY_HINT = (
 EMPTY_REPLY_HINT = (
     "(Note from the Arvo app: your last reply was empty. Continue the task with tools. "
     "If it is finished, reply with a short summary of what you did.)"
+)
+
+# Sent when the model's reply was cut off by its length limit, which leaves
+# any file it was writing incomplete.
+LENGTH_HINT = (
+    "(Note from the Arvo app: your last reply was too long and got cut off, so nothing from it was used. "
+    "Write in smaller pieces: put long code in several smaller files, or write the first part of a file "
+    "and add the rest with edit_file in later steps. Keep each file you write under about 150 lines.)"
+)
+
+LENGTH_STOP = (
+    "I tried to write more than fits in one reply and it got cut off twice, so I stopped rather than save "
+    "a broken file. Send \"keep going, in smaller files\" and I'll split it up."
 )
