@@ -202,7 +202,19 @@ function killTree(child) {
 // Programs started with background: true (dev servers, apps). They keep
 // running after the step ends and are stopped when Arvo quits.
 const background = new Set();
-const BACKGROUND_WAIT_MS = 8000;
+let BACKGROUND_WAIT_MS = 8000;
+// A command that is still going after this long and has gone quiet is
+// probably a program meant to keep running (an app or a server), so it is
+// moved to the background instead of holding up Arvo until the time limit.
+let QUIET_AFTER_MS = 45_000;
+let QUIET_FOR_MS = 20_000;
+
+/** For tests: shorten the waits. */
+function setTimings({ backgroundWait = BACKGROUND_WAIT_MS, quietAfter = QUIET_AFTER_MS, quietFor = QUIET_FOR_MS }) {
+  BACKGROUND_WAIT_MS = backgroundWait;
+  QUIET_AFTER_MS = quietAfter;
+  QUIET_FOR_MS = quietFor;
+}
 
 function stopBackground() {
   for (const child of background) killTree(child);
@@ -221,6 +233,8 @@ if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }; exit
   return new Promise((resolve) => {
     let output = "";
     let timedOut = false;
+    const startedAt = Date.now();
+    let lastOutputAt = startedAt;
     const child = spawn(shell, args, {
       cwd: dir,
       env: { ...process.env, CI: "1", FORCE_COLOR: "0", NO_COLOR: "1" },
@@ -231,6 +245,7 @@ if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }; exit
     const add = (chunk) => {
       const text = chunk.toString("utf8");
       output += text;
+      lastOutputAt = Date.now();
       if (output.length > 400_000) output = output.slice(-200_000);
       onOutput?.(text);
     };
@@ -239,24 +254,38 @@ if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }; exit
     const limit = SLOW_COMMAND.test(command) ? SLOW_COMMAND_TIMEOUT_MS : COMMAND_TIMEOUT_MS;
     let done = false;
     let timer;
-    if (inBackground) {
-      // Give it a few seconds to start (or fail), then hand back what it printed.
+    let quietCheck;
+    // Leave the program running and hand back what it printed so far.
+    const leaveRunning = (note) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      clearInterval(quietCheck);
+      signal?.removeEventListener("abort", abort);
       background.add(child);
       child.on("close", () => background.delete(child));
-      timer = setTimeout(() => {
-        if (done) return;
-        done = true;
-        signal?.removeEventListener("abort", abort);
-        let text = output.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").trim();
-        text = clip(text || "(no output yet)");
-        text += `\n[Still running in the background (process ${child.pid}). It keeps running until Arvo quits.]`;
-        resolve({ output: text, ok: true });
-      }, BACKGROUND_WAIT_MS);
+      let text = output.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").trim();
+      text = clip(text || "(no output yet)");
+      text += `\n[${note} It is still running in the background (process ${child.pid}) and keeps running until Arvo quits.]`;
+      resolve({ output: text, ok: true });
+    };
+    if (inBackground) {
+      // Give it a few seconds to start (or fail).
+      timer = setTimeout(() => leaveRunning("Started."), BACKGROUND_WAIT_MS);
     } else {
       timer = setTimeout(() => {
         timedOut = true;
         killTree(child);
       }, limit);
+      if (!SLOW_COMMAND.test(command)) {
+        quietCheck = setInterval(() => {
+          const now = Date.now();
+          if (now - startedAt >= QUIET_AFTER_MS && now - lastOutputAt >= QUIET_FOR_MS) {
+            const seconds = Math.round((now - startedAt) / 1000);
+            leaveRunning(`This kept running for ${seconds} seconds and went quiet, so it looks like a program that stays open.`);
+          }
+        }, 1000);
+      }
     }
     const abort = () => killTree(child);
     signal?.addEventListener("abort", abort, { once: true });
@@ -264,6 +293,7 @@ if (-not $?) { if ($LASTEXITCODE) { exit $LASTEXITCODE } else { exit 1 } }; exit
       if (done) return;
       done = true;
       clearTimeout(timer);
+      clearInterval(quietCheck);
       signal?.removeEventListener("abort", abort);
       // Strip terminal colour codes the model can't use.
       let text = output.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "").trim();
@@ -335,4 +365,4 @@ async function runTool(workspace, name, args, options = {}) {
   }
 }
 
-module.exports = { runTool, previewFor, NEEDS_APPROVAL, resolveInside, isSecretFile, stopBackground };
+module.exports = { runTool, previewFor, NEEDS_APPROVAL, resolveInside, isSecretFile, stopBackground, setTimings };

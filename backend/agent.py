@@ -64,7 +64,9 @@ LONG_RUNNING_OLD = "- Long-running servers (npm run dev and similar) never finis
 LONG_RUNNING_BACKGROUND = (
     "- Programs that keep running (dev servers, apps with a window, bots, remotes) never finish. To start one, "
     "call run_command with background: true. You get what it printed in its first seconds, and it keeps running. "
-    "When the user asks you to run or open their program, start it this way instead of telling them how."
+    "When the user asks you to run, start or open their program, start it this way instead of telling them how, "
+    'for example run_command with {"command": "python app.py", "background": true}. '
+    "Only say a program is running if the result says it is still running."
 )
 
 
@@ -198,11 +200,27 @@ which commands you will run, and how you will check the result. Keep it short. D
 The user will approve the plan, and then you will carry it out.
 """.strip()
 
-# Each request carries the whole conversation, so keep it within what the
-# model (and Groq's per-minute token limits) can take.
-AGENT_CHAR_BUDGET = 24_000
+# Each request carries the whole conversation, and Groq's free plan allows
+# about 8,000 tokens a minute per model. The instructions and tool list take
+# about 2,000 tokens, so the conversation is kept to roughly 2,500 more
+# (about 4 characters a token). Smaller steps mean fewer waits.
+AGENT_CHAR_BUDGET = 10_000
+# No single tool result may be bigger than this, even the newest one.
+MAX_TOOL_OUTPUT_CHARS = 8_000
+# Older tool results are first shortened to this, and only removed if the
+# conversation is still too big.
+SHORT_TOOL_OUTPUT_CHARS = 600
 MAX_STEPS_PER_TURN = 40
 TRIMMED = "[Older output removed to save space. Run the tool again if you need it.]"
+
+
+def _clip_middle(text: str, limit: int) -> str:
+    """Keep the start and end of a long text; the end of command output is often the error."""
+    if len(text) <= limit:
+        return text
+    head = limit * 3 // 4
+    tail = limit - head
+    return f"{text[:head]}\n[... {len(text) - limit} characters cut to save space ...]\n{text[-tail:]}"
 
 
 def _size(message: dict) -> int:
@@ -218,9 +236,26 @@ def trim_messages(messages: list[dict]) -> list[dict]:
     Messages are never dropped, so every tool call keeps its matching result.
     """
     messages = [dict(m) for m in messages]
+    for message in messages:
+        if message["role"] == "tool":
+            message["content"] = _clip_middle(message.get("content") or "", MAX_TOOL_OUTPUT_CHARS)
     total = sum(_size(m) for m in messages)
-    # Leave the newest few messages alone; the model is working on those.
-    for message in messages[:-3]:
+    # Leave the latest step alone (the model's last tool calls and their
+    # results); the model is working on those.
+    last_assistant = max((i for i, m in enumerate(messages) if m["role"] == "assistant"), default=len(messages))
+    older = messages[:last_assistant]
+    # First pass: shorten older tool results but keep their start, so the
+    # model still remembers roughly what it saw.
+    for message in older:
+        if total <= AGENT_CHAR_BUDGET:
+            break
+        content = message.get("content") or ""
+        if message["role"] == "tool" and len(content) > SHORT_TOOL_OUTPUT_CHARS + 200:
+            short = content[:SHORT_TOOL_OUTPUT_CHARS] + "\n[... rest removed to save space. Run the tool again if you need it.]"
+            total -= len(content) - len(short)
+            message["content"] = short
+    # Second pass: remove older outputs and file contents completely.
+    for message in older:
         if total <= AGENT_CHAR_BUDGET:
             break
         if message["role"] == "tool" and len(message.get("content") or "") > len(TRIMMED):

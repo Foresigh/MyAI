@@ -74,3 +74,21 @@ def lookup(model_id):
     if live:
         return live[0]
     return {"groq": os.environ.get("GROQ_MODEL", ""), "extra": {}}
+
+
+# When a model hits Groq's rate limit, the coding agent moves on to the next
+# one here. Each model has its own limits, so this multiplies what Arvo can
+# do before it has to wait. All of these can call tools.
+AGENT_FALLBACK_ORDER = ["arvo-1.0", "arvo-1.2", "arvo-1.1"]
+
+
+def agent_models(model_id):
+    """The chosen model first, then the others to try when it is rate limited."""
+    first = lookup(model_id)
+    live = {m["id"]: m for m in _live_models()}
+    out = [first]
+    for fallback_id in AGENT_FALLBACK_ORDER:
+        m = live.get(fallback_id)
+        if m and m["groq"] != first.get("groq"):
+            out.append(m)
+    return out

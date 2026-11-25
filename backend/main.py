@@ -498,7 +498,7 @@ def _limit_message(status: int, error_text: str, wait: float | None) -> str:
     return "Arvo is busy right now. Please try again in a moment."
 
 
-def _post_groq(payload: dict, *, stream: bool, timeout: int) -> tuple[requests.Response | None, str | None]:
+def _post_groq(payload: dict, *, stream: bool, timeout: int, auto_retry: bool = True) -> tuple[requests.Response | None, str | None]:
     """POST to Groq, retrying once on a short rate-limit wait.
 
     Returns (response, None) on anything other than a rate limit, or
@@ -528,7 +528,8 @@ def _post_groq(payload: dict, *, stream: bool, timeout: int) -> tuple[requests.R
         )
 
         retryable = (
-            response.status_code == 429
+            auto_retry
+            and response.status_code == 429
             and attempt == 1
             and wait is not None
             and wait <= MAX_AUTO_RETRY_WAIT
@@ -746,6 +747,43 @@ class AgentStepRequest(BaseModel):
     features: list[str] = []  # what this copy of the app supports, e.g. "batch"
 
 
+_WAIT_IN_MESSAGE_RE = re.compile(r"try again in (\d+) seconds")
+
+
+def _post_agent(payload: dict, models: list[dict]) -> requests.Response:
+    """Ask the first model that isn't rate limited.
+
+    Groq limits each model separately, so when one is out of room the next
+    one in `models` is tried right away instead of making the user wait.
+    `payload` is updated to the model that answered, so retries reuse it.
+    Raises HTTPException(429) when every model is limited.
+    """
+    extra_keys = {key for m in models for key in m.get("extra", {})}
+    errors: list[str] = []
+    for index, model in enumerate(models):
+        if index:
+            for key in extra_keys:
+                payload.pop(key, None)
+            payload.update(model.get("extra", {}))
+            payload["model"] = model["groq"]
+        last = index == len(models) - 1
+        response, limit_error = _post_groq(payload, stream=False, timeout=120, auto_retry=last)
+        if not limit_error:
+            if index:
+                groq_logger.info("Agent step moved to %s because the other models were rate limited", model["groq"])
+            return response
+        errors.append(limit_error)
+    # Every model is out of room: report the shortest wait, if any.
+    waits = [int(m.group(1)) for e in errors if (m := _WAIT_IN_MESSAGE_RE.search(e))]
+    if waits:
+        detail = f"Arvo is busy right now. Please try again in {min(waits)} seconds."
+    elif all("daily limit" in e for e in errors):
+        detail = "Arvo has used up today's free limit on every model. Please try again tomorrow."
+    else:
+        detail = errors[0]
+    raise HTTPException(status_code=429, detail=detail)
+
+
 @app.post("/agent/step")
 def agent_step(request: AgentStepRequest, http_request: Request):
     """Return the coding agent's next message. The desktop app runs the tools."""
@@ -776,7 +814,11 @@ def agent_step(request: AgentStepRequest, http_request: Request):
     if not _groq_ready():
         raise HTTPException(status_code=500, detail="GROQ_API_KEY must be set.")
 
-    shell = {"win32": "Windows (commands run in PowerShell)", "darwin": "macOS (zsh)", "linux": "Linux (bash)"}
+    shell = {
+        "win32": "Windows (commands run in PowerShell; to run a script in the workspace, put .\\ in front of it, like .\\run.bat)",
+        "darwin": "macOS (zsh)",
+        "linux": "Linux (bash)",
+    }
     context = f"The workspace folder is named \"{(request.workspace or 'project')[:80]}\"."
     if request.platform in shell:
         context += f" The computer runs {shell[request.platform]}."
@@ -790,11 +832,10 @@ def agent_step(request: AgentStepRequest, http_request: Request):
     payload["tools"] = agent.tools_for(request.mode, batch, background)
     payload["tool_choice"] = "auto"
 
+    models = arvo_models.agent_models(request.model)
     try:
         for attempt in (1, 2, 3):
-            response, limit_error = _post_groq(payload, stream=False, timeout=120)
-            if limit_error:
-                raise HTTPException(status_code=429, detail=limit_error)
+            response = _post_agent(payload, models)
             # Groq returns 400 tool_use_failed when the model writes a broken
             # tool call, usually because it tried to send too much at once.
             # Ask again, and after the first miss tell it to send less.
@@ -823,8 +864,8 @@ def agent_step(request: AgentStepRequest, http_request: Request):
         groq_logger.warning("Empty agent reply from %s, asking again", payload["model"])
         payload["messages"] = [*payload["messages"], {"role": "user", "content": agent.EMPTY_REPLY_HINT}]
         try:
-            retry, limit_error = _post_groq(payload, stream=False, timeout=120)
-            if not limit_error and retry.status_code < 400:
+            retry = _post_agent(payload, models)
+            if retry.status_code < 400:
                 reply = retry.json()["choices"][0]["message"]
                 tool_calls = [c for c in agent.clean_tool_calls(reply.get("tool_calls")) if c["function"]["name"] in agent.TOOL_NAMES]
         except requests.RequestException:
